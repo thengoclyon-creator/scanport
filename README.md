@@ -8,8 +8,13 @@
 
 ## 1. Giới thiệu tổng quan
 Ứng dụng được thiết kế chuyên biệt cho việc kiểm thử an ninh mạng nội bộ và đo lường khoảng cách vô tuyến:
-1. **Chỉ quét Wi-Fi (Strict Wi-Fi Isolation):** Ứng dụng tự động phát hiện card mạng Wi-Fi đang kết nối, khóa dải quét trong Subnet Wi-Fi hiện tại (ví dụ: `192.168.1.0/24`). Mọi thao tác quét ra ngoài IP Internet hoặc mạng dây khác đều bị hệ thống chặn và thông báo rõ ràng.
-2. **Dò tìm thiết bị trong mạng Wi-Fi (LAN Discovery):** Tự động phát hiện các Client, Router/AP và Host hiện tại bằng phương thức ARP sweep + ICMP + TCP probe đa luồng.
+1. **Chỉ quét Wi-Fi (Strict Wi-Fi Isolation):** Ứng dụng tự động phát hiện card mạng Wi-Fi đang kết nối, khóa dải quét trong Subnet Wi-Fi hiện tại (ví dụ: `192.168.1.0/24` hoặc `10.12.0.0/16`). Mọi thao tác quét ra ngoài IP Internet hoặc mạng dây khác đều bị hệ thống chặn và thông báo rõ ràng.
+2. **Dò tìm thiết bị trong mạng Wi-Fi (Tối ưu cho cả Wi-Fi Gia đình & Wi-Fi Công cộng):**
+   - Hỗ trợ đầy đủ các dải mạng Wi-Fi công cộng lớn như `/16` (65.534 IP), `/20`, `/22` tại trường học, quán cafe, khách sạn, sân bay.
+   - Chiến lược quét phân vùng thông minh: Dải Gateway Router AP + Dải Client nội bộ + Dải DHCP + Đồng bộ bảng ARP hệ thống.
+   - Thức tỉnh thiết bị qua Multicast/Broadcast (mDNS UDP 5353, SSDP UPnP UDP 1900, NetBIOS UDP 137, LLMNR UDP 5355).
+   - Cơ chế bắt gói ARP thời gian thực: Phát hiện các thiết bị di động (iPhone, Android, Windows Laptop) dù firewall máy đó chặn toàn bộ ICMP ping.
+   - Tự động nhận diện nhà sản xuất qua địa chỉ MAC (OUI Lookup: Apple, Samsung, Xiaomi, Intel, Dell, Asus, Cisco, Aruba...) và phát hiện địa chỉ MAC riêng tư (Private MAC bảo mật trên iOS 14+ và Android 10+).
 3. **Quét cổng dịch vụ (Port Scanner đa luồng):**
    - Hỗ trợ các preset: Top 30 cổng thông dụng, Cổng Web (80, 443...), Cổng Database, dải 1 - 1024, hoặc tùy chỉnh bất kỳ.
    - Đo thời gian bắt tay TCP Socket (RTT) chính xác tới cấp độ microsecond.
@@ -18,6 +23,7 @@
    - **Trường hợp Client là Router / Access Point (Gateway):** Áp dụng mô hình toán học **Log-Distance Path Loss Model** dựa trên chỉ số cường độ tín hiệu **RSSI (dBm)** và phần trăm tín hiệu thực tế đọc từ card Wi-Fi.
    - **Trường hợp Client là thiết bị cùng mạng Wi-Fi (Peer Client):** Áp dụng mô hình kết hợp **Độ trễ khứ hồi Round-Trip Time (RTT)** + **Độ trễ hàng đợi CSMA/CA** + **Khoảng cách truyền dẫn gián tiếp qua AP**.
 5. **Giao diện hiện đại (Modern Dark Cyber Theme):**
+   - **Tìm kiếm & Lọc thiết bị tức thời (Live Search Bar):** Ô tìm kiếm thời gian thực tại Tab dò thiết bị, hỗ trợ lọc nhanh theo IP, Tên thiết bị, Nhà sản xuất (Apple, Samsung...), hoặc địa chỉ MAC.
    - **Bản đồ Radar quét 360°:** Vẽ động các vòng tròn cự ly (2m, 5m, 10m, 15m, 20m) với vệt quét xoay thời gian thực.
    - **Thước đo khoảng cách (Distance Gauge):** Phân loại cự ly trực quan kèm chỉ số tin cậy.
    - **Thanh trượt môi trường tương tác:** Cho phép tinh chỉnh hệ số suy hao $n$ ($1.8 \le n \le 4.0$) để quan sát khoảng cách thay đổi theo các điều kiện phòng thực tế.

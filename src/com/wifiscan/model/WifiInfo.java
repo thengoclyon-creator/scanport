@@ -45,6 +45,17 @@ public class WifiInfo {
         if (!connected || localIp == null || localIp.equals("0.0.0.0")) {
             return false;
         }
+        if (ipStr == null || ipStr.trim().isEmpty()) {
+            return false;
+        }
+        ipStr = ipStr.trim();
+        // Luôn chấp nhận Gateway hoặc Local IP của Wi-Fi này
+        if (gatewayIp != null && gatewayIp.equals(ipStr)) {
+            return true;
+        }
+        if (localIp.equals(ipStr) || ipStr.equals("127.0.0.1")) {
+            return true;
+        }
         try {
             InetAddress target = InetAddress.getByName(ipStr);
             InetAddress local = InetAddress.getByName(localIp);
@@ -190,5 +201,33 @@ public class WifiInfo {
         } catch (Exception e) {
             return "192.168.1.";
         }
+    }
+
+    /**
+     * Lấy địa chỉ mạng (Network Address) chuẩn theo Subnet Mask và Prefix Length.
+     * Hỗ trợ chuẩn xác các dải mạng lớn như /16, /20, /22 trong Wi-Fi công cộng.
+     */
+    public String getNetworkAddress() {
+        if (localIp == null || localIp.equals("0.0.0.0")) return "0.0.0.0";
+        try {
+            InetAddress local = InetAddress.getByName(localIp);
+            byte[] ipBytes = local.getAddress();
+            int prefix = prefixLength > 0 && prefixLength <= 32 ? prefixLength : 24;
+            int mask = prefix == 0 ? 0 : 0xFFFFFFFF << (32 - prefix);
+            byte[] netBytes = new byte[4];
+            for (int i = 0; i < 4; i++) {
+                netBytes[i] = (byte)(ipBytes[i] & ((mask >>> (24 - i * 8)) & 0xFF));
+            }
+            return InetAddress.getByAddress(netBytes).getHostAddress();
+        } catch (Exception e) {
+            return getSubnetNetworkAddress() + "0";
+        }
+    }
+
+    /**
+     * Trả về định dạng CIDR, ví dụ: 10.12.0.0/16 hoặc 192.168.1.0/24
+     */
+    public String getCidrNotation() {
+        return getNetworkAddress() + "/" + (prefixLength > 0 ? prefixLength : 24);
     }
 }

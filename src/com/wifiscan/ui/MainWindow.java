@@ -8,6 +8,7 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.io.File;
 import java.io.PrintWriter;
@@ -34,8 +35,11 @@ public class MainWindow extends JFrame {
     private final ModernButton btnStopLan = new ModernButton("Dừng quét", Theme.DANGER_RED);
     private final JProgressBar lanProgressBar = new JProgressBar(0, 100);
     private final JLabel lblLanProgress = new JLabel("Sẵn sàng quét mạng");
+    private final JTextField txtSearchDevice = new JTextField(20);
+    private final JLabel lblSearchResult = new JLabel("");
     private DefaultTableModel deviceTableModel;
     private ModernTable deviceTable;
+    private TableRowSorter<DefaultTableModel> deviceSorter;
     private final List<NetworkDevice> discoveredDevices = new ArrayList<>();
 
     // Tab 2: Quét Port
@@ -69,6 +73,7 @@ public class MainWindow extends JFrame {
     private final ModernButton btnScanPublic = new ModernButton("Quet Wi-Fi Xung Quanh", new Color(16, 185, 129));
     private final ModernButton btnStopPublic = new ModernButton("Dung Quet", Theme.DANGER_RED);
     private final ModernButton btnCheckPortal = new ModernButton("Kiem tra Captive Portal", new Color(99, 102, 241));
+    private final ModernButton btnScanDevicesInPublic = new ModernButton("Dò thiết bị trong mạng này", Theme.ACCENT_CYAN);
     private final JProgressBar publicScanProgress = new JProgressBar(0, 100);
     private final JLabel lblPublicStatus = new JLabel("San sang quet Wi-Fi cong cong...");
     private final JLabel lblPublicSummary = new JLabel(" ");
@@ -219,12 +224,13 @@ public class MainWindow extends JFrame {
             public boolean isCellEditable(int row, int column) { return false; }
         };
         deviceTable = new ModernTable(deviceTableModel);
+        deviceSorter = new TableRowSorter<>(deviceTableModel);
+        deviceTable.setRowSorter(deviceSorter);
 
         deviceTable.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
-                int row = deviceTable.getSelectedRow();
-                if (row >= 0 && row < discoveredDevices.size()) {
-                    NetworkDevice dev = discoveredDevices.get(row);
+                NetworkDevice dev = getSelectedDevice();
+                if (dev != null) {
                     distanceCard.displayDeviceDistance(dev, currentWifi);
                     radarPanel.setSelectedDevice(dev);
                     txtTargetIp.setText(dev.getIpAddress());
@@ -234,7 +240,65 @@ public class MainWindow extends JFrame {
 
         JScrollPane scroll = new JScrollPane(deviceTable);
         scroll.setBorder(BorderFactory.createLineBorder(Theme.BORDER, 1));
-        panel.add(scroll, BorderLayout.CENTER);
+
+        // ── Thanh tìm kiếm nhanh thiết bị trong mạng Wi-Fi ──
+        JPanel searchBar = new JPanel(new BorderLayout(10, 0));
+        searchBar.setBackground(Theme.BG_CARD);
+        searchBar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Theme.BORDER, 1),
+                new EmptyBorder(6, 12, 6, 12)
+        ));
+
+        JPanel searchInputPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        searchInputPanel.setOpaque(false);
+
+        JLabel lblSearchIcon = new JLabel("🔍 Tìm kiếm:");
+        lblSearchIcon.setFont(Theme.FONT_BOLD);
+        lblSearchIcon.setForeground(Theme.ACCENT_CYAN);
+
+        txtSearchDevice.setPreferredSize(new Dimension(300, 30));
+        txtSearchDevice.setFont(Theme.FONT_REGULAR);
+        txtSearchDevice.setBackground(Theme.BG_INPUT);
+        txtSearchDevice.setForeground(Theme.TEXT_MAIN);
+        txtSearchDevice.setCaretColor(Color.WHITE);
+        txtSearchDevice.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Theme.BORDER, 1),
+                new EmptyBorder(3, 8, 3, 8)
+        ));
+        txtSearchDevice.setToolTipText("Tìm theo IP, Tên thiết bị, Hãng (Apple, Samsung...), MAC...");
+
+        ModernButton btnClearSearch = new ModernButton("Xóa tìm", new Color(51, 65, 85));
+        btnClearSearch.setPreferredSize(new Dimension(75, 30));
+        btnClearSearch.addActionListener(e -> {
+            txtSearchDevice.setText("");
+            filterDevices("");
+        });
+
+        lblSearchResult.setFont(Theme.FONT_REGULAR);
+        lblSearchResult.setForeground(Theme.TEXT_MUTED);
+
+        searchInputPanel.add(lblSearchIcon);
+        searchInputPanel.add(txtSearchDevice);
+        searchInputPanel.add(btnClearSearch);
+        searchInputPanel.add(lblSearchResult);
+
+        searchBar.add(searchInputPanel, BorderLayout.CENTER);
+
+        txtSearchDevice.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { filterDevices(txtSearchDevice.getText()); }
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { filterDevices(txtSearchDevice.getText()); }
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { filterDevices(txtSearchDevice.getText()); }
+        });
+
+        JPanel centerPanel = new JPanel(new BorderLayout(0, 8));
+        centerPanel.setOpaque(false);
+        centerPanel.add(searchBar, BorderLayout.NORTH);
+        centerPanel.add(scroll, BorderLayout.CENTER);
+
+        panel.add(centerPanel, BorderLayout.CENTER);
 
         // Events
         btnScanLan.addActionListener(e -> startLanScan());
@@ -473,6 +537,7 @@ public class MainWindow extends JFrame {
         btnRow.add(btnScanPublic);
         btnRow.add(btnStopPublic);
         btnRow.add(btnCheckPortal);
+        btnRow.add(btnScanDevicesInPublic);
 
         // Chú giải màu bảo mật
         JPanel legendRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 0));
@@ -568,6 +633,7 @@ public class MainWindow extends JFrame {
         btnScanPublic.addActionListener(e -> startPublicWifiScan());
         btnStopPublic.addActionListener(e -> stopPublicWifiScan());
         btnCheckPortal.addActionListener(e -> checkPortalForSelected());
+        btnScanDevicesInPublic.addActionListener(e -> scanDevicesFromPublicTab());
 
         return panel;
     }
@@ -642,8 +708,8 @@ public class MainWindow extends JFrame {
             if (currentWifi.isConnected()) {
                 log(String.format("Đã kết nối Wi-Fi: %s (BSSID: %s, RSSI: %d dBm, Signal: %d%%)",
                         currentWifi.getSsid(), currentWifi.getBssid(), currentWifi.getRssiDbm(), currentWifi.getSignalPercent()));
-                log(String.format("Dải mạng Wi-Fi: %s/24 (Scanner IP: %s, Gateway: %s)",
-                        currentWifi.getSubnetNetworkAddress() + "0", currentWifi.getLocalIp(), currentWifi.getGatewayIp()));
+                log(String.format("Dải mạng Wi-Fi: %s (Scanner IP: %s, Gateway: %s)",
+                        currentWifi.getCidrNotation(), currentWifi.getLocalIp(), currentWifi.getGatewayIp()));
 
                 if (txtTargetIp.getText().trim().isEmpty() || txtTargetIp.getText().equals("127.0.0.1")) {
                     txtTargetIp.setText(currentWifi.getGatewayIp());
@@ -666,11 +732,17 @@ public class MainWindow extends JFrame {
         btnStopLan.setEnabled(true);
         deviceTableModel.setRowCount(0);
         discoveredDevices.clear();
+        txtSearchDevice.setText("");
+        filterDevices("");
+        lblSearchResult.setText("");
         lanProgressBar.setValue(0);
-        lblLanProgress.setText("Đang khởi động dò tìm thiết bị Wi-Fi...");
-        int hostCount = (1 << (32 - currentWifi.getPrefixLength())) - 2;
-        log(String.format("Bắt đầu dò tìm thiết bị trong mạng Wi-Fi: %s0/%d (%d địa chỉ IP cần quét)...",
-                currentWifi.getSubnetNetworkAddress(), currentWifi.getPrefixLength(), hostCount));
+        lblLanProgress.setText("Đang khởi động dò tìm thiết bị Wi-Fi (Tối ưu Wi-Fi công cộng)...");
+        log(String.format("Bắt đầu dò tìm thiết bị trong mạng Wi-Fi: %s (Gateway: %s, Subnet Mask: %s)...",
+                currentWifi.getCidrNotation(), currentWifi.getGatewayIp(), currentWifi.getSubnetMask()));
+        if (currentWifi.getPrefixLength() < 24) {
+            log(String.format("-> Phát hiện mạng Wi-Fi công cộng dải rộng (/%d): Tối ưu quét đa phân vùng (Gateway AP + Client Local + Multicast Wakeup + Đồng bộ ARP thời gian thực).",
+                    currentWifi.getPrefixLength()));
+        }
 
         lanScanner.scanWifiSubnet(currentWifi, new LanScanner.ScanProgressListener() {
             @Override
@@ -698,8 +770,30 @@ public class MainWindow extends JFrame {
                     });
 
                     radarPanel.setDevices(discoveredDevices);
+                    filterDevices(txtSearchDevice.getText());
                     log(String.format("Phát hiện thiết bị Wi-Fi: %s (%s) - %s | Khoảng cách: %s",
                             device.getIpAddress(), device.getHostName(), device.getDeviceType().getLabel(), distStr));
+                });
+            }
+
+            @Override
+            public void onDeviceUpdated(NetworkDevice device) {
+                SwingUtilities.invokeLater(() -> {
+                    DistanceEstimate est = device.getDistanceEstimate();
+                    String distStr = est != null ? est.getFormattedDistance() : "--";
+
+                    for (int i = 0; i < deviceTableModel.getRowCount(); i++) {
+                        if (deviceTableModel.getValueAt(i, 0).equals(device.getIpAddress())) {
+                            deviceTableModel.setValueAt(device.getHostName(), i, 1);
+                            deviceTableModel.setValueAt(device.getMacAddress(), i, 2);
+                            deviceTableModel.setValueAt(device.getDeviceType(), i, 3);
+                            deviceTableModel.setValueAt(String.format("%.2f ms", device.getRttMs()), i, 4);
+                            deviceTableModel.setValueAt(distStr, i, 5);
+                            break;
+                        }
+                    }
+                    filterDevices(txtSearchDevice.getText());
+                    radarPanel.setDevices(discoveredDevices);
                 });
             }
 
@@ -710,6 +804,7 @@ public class MainWindow extends JFrame {
                     btnStopLan.setEnabled(false);
                     lblLanProgress.setText(String.format("Hoàn tất! Tìm thấy %d thiết bị trên Wi-Fi.", devices.size()));
                     log("Quét mạng Wi-Fi hoàn tất! Tổng cộng: " + devices.size() + " thiết bị.");
+                    filterDevices(txtSearchDevice.getText());
                     radarPanel.setDevices(devices);
                     if (!devices.isEmpty()) {
                         deviceTable.setRowSelectionInterval(0, 0);
@@ -1015,10 +1110,64 @@ public class MainWindow extends JFrame {
         }
     }
 
+    private void scanDevicesFromPublicTab() {
+        int row = publicTable.getSelectedRow();
+        if (row >= 0 && row < scannedNetworks.size()) {
+            PublicWifiNetwork net = scannedNetworks.get(row);
+            if (!net.isCurrentNetwork()) {
+                int confirm = JOptionPane.showConfirmDialog(this,
+                        "Mạng '" + net.getSsid() + "' không phải mạng Wi-Fi bạn đang kết nối!\n" +
+                        "Ứng dụng chỉ có thể dò quét thiết bị bên trong mạng Wi-Fi mà máy đang kết nối (" +
+                        (currentWifi.isConnected() ? currentWifi.getSsid() : "Chưa kết nối") + ").\n\n" +
+                        "Bạn có muốn chuyển sang Tab 1 để quét mạng đang kết nối hiện tại không?",
+                        "Thông báo mạng Wi-Fi", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE);
+                if (confirm != JOptionPane.YES_OPTION) {
+                    return;
+                }
+            }
+        }
+        tabbedPane.setSelectedIndex(0); // Chuyển sang Tab 1: Dò thiết bị Wi-Fi
+        startLanScan();
+    }
+
+    private NetworkDevice getSelectedDevice() {
+        int viewRow = deviceTable.getSelectedRow();
+        if (viewRow < 0) return null;
+        try {
+            int modelRow = deviceTable.convertRowIndexToModel(viewRow);
+            if (modelRow >= 0 && modelRow < deviceTableModel.getRowCount()) {
+                String ip = (String) deviceTableModel.getValueAt(modelRow, 0);
+                for (NetworkDevice d : discoveredDevices) {
+                    if (d.getIpAddress().equals(ip)) return d;
+                }
+                if (modelRow < discoveredDevices.size()) return discoveredDevices.get(modelRow);
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    private void filterDevices(String text) {
+        if (deviceSorter == null) return;
+        if (text == null || text.trim().isEmpty()) {
+            deviceSorter.setRowFilter(null);
+            lblSearchResult.setText(discoveredDevices.isEmpty()
+                    ? ""
+                    : String.format("Tổng cộng: %d thiết bị", discoveredDevices.size()));
+        } else {
+            String q = text.trim();
+            try {
+                deviceSorter.setRowFilter(RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(q)));
+                int count = deviceTable.getRowCount();
+                lblSearchResult.setText(String.format("Khớp: %d / %d thiết bị", count, discoveredDevices.size()));
+            } catch (Exception ignored) {
+                deviceSorter.setRowFilter(null);
+            }
+        }
+    }
+
     private void selectCurrentDeviceForPortScan() {
-        int row = deviceTable.getSelectedRow();
-        if (row >= 0 && row < discoveredDevices.size()) {
-            NetworkDevice dev = discoveredDevices.get(row);
+        NetworkDevice dev = getSelectedDevice();
+        if (dev != null) {
             txtTargetIp.setText(dev.getIpAddress());
             tabbedPane.setSelectedIndex(1); // Chuyển sang Tab 2
             log("Đã chọn thiết bị: " + dev.getIpAddress() + " (" + dev.getHostName() + ") để quét cổng.");
@@ -1028,9 +1177,8 @@ public class MainWindow extends JFrame {
     }
 
     private void selectCurrentDeviceForDistance() {
-        int row = deviceTable.getSelectedRow();
-        if (row >= 0 && row < discoveredDevices.size()) {
-            NetworkDevice dev = discoveredDevices.get(row);
+        NetworkDevice dev = getSelectedDevice();
+        if (dev != null) {
             distanceCard.displayDeviceDistance(dev, currentWifi);
             radarPanel.setSelectedDevice(dev);
             tabbedPane.setSelectedIndex(2); // Chuyển sang Tab 3
@@ -1040,9 +1188,14 @@ public class MainWindow extends JFrame {
     }
 
     private void updateDeviceDistanceInTable(DistanceEstimate est) {
-        int row = deviceTable.getSelectedRow();
-        if (row >= 0 && row < discoveredDevices.size()) {
-            deviceTableModel.setValueAt(est.getFormattedDistance(), row, 5);
+        int viewRow = deviceTable.getSelectedRow();
+        if (viewRow >= 0) {
+            try {
+                int modelRow = deviceTable.convertRowIndexToModel(viewRow);
+                if (modelRow >= 0 && modelRow < deviceTableModel.getRowCount()) {
+                    deviceTableModel.setValueAt(est.getFormattedDistance(), modelRow, 5);
+                }
+            } catch (Exception ignored) {}
         }
     }
 

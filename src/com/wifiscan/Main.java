@@ -50,7 +50,7 @@ public class Main {
         System.out.println("[+] Card Wi-Fi: " + wifi.getInterfaceName() + " (" + wifi.getAdapterDescription() + ")");
         System.out.println("[+] SSID: " + wifi.getSsid() + " | RSSI: " + wifi.getRssiDbm() + " dBm (" + wifi.getSignalPercent() + "%)");
         System.out.println("[+] Scanner IP: " + wifi.getLocalIp() + " | Gateway: " + wifi.getGatewayIp());
-        System.out.println("[+] Dải mạng Wi-Fi: " + wifi.getSubnetNetworkAddress() + "0/24");
+        System.out.println("[+] Dải mạng Wi-Fi: " + wifi.getCidrNotation());
         System.out.println("-------------------------------------------------------------");
 
         String targetIp = wifi.getGatewayIp();

@@ -123,7 +123,9 @@ public class DistanceCard extends JPanel {
                         currentDevice.isGateway(),
                         currentDevice.isLocalHost(),
                         currentWifi,
-                        n
+                        currentDevice.getRttMs(),
+                        n,
+                        currentDevice.getMacAddress()
                 );
                 currentDevice.setDistanceEstimate(est);
                 updateEstimate(currentDevice, currentWifi, est);
@@ -190,7 +192,13 @@ public class DistanceCard extends JPanel {
         if (est == null) {
             double n = sliderPathLoss.getValue() / 10.0;
             est = DistanceCalculator.calculateDistance(
-                    device.getIpAddress(), device.isGateway(), device.isLocalHost(), wifiInfo, n
+                    device.getIpAddress(),
+                    device.isGateway(),
+                    device.isLocalHost(),
+                    wifiInfo,
+                    device.getRttMs(),
+                    n,
+                    device.getMacAddress()
             );
             device.setDistanceEstimate(est);
         }
