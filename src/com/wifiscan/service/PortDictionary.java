@@ -26,7 +26,7 @@ public class PortDictionary {
         SERVICES.put(110, "POP3 (Post Office Protocol)");
         SERVICES.put(111, "RPCBind / Portmapper");
         SERVICES.put(123, "NTP (Network Time Protocol)");
-        SERVICES.put(135, "MS RPC / EPMAP (Windows)");
+        SERVICES.put(135, "MS RPC / EPMAP (Windows Remote Procedure)");
         SERVICES.put(137, "NetBIOS Name Service");
         SERVICES.put(138, "NetBIOS Datagram");
         SERVICES.put(139, "NetBIOS Session Service");
@@ -39,6 +39,7 @@ public class PortDictionary {
         SERVICES.put(500, "ISAKMP / IKE (IPsec VPN)");
         SERVICES.put(514, "Syslog");
         SERVICES.put(587, "SMTP (Mail Submission)");
+        SERVICES.put(631, "IPP (Internet Printing Protocol)");
         SERVICES.put(636, "LDAPS (Secure LDAP)");
         SERVICES.put(993, "IMAPS (Secure IMAP)");
         SERVICES.put(995, "POP3S (Secure POP3)");
@@ -46,30 +47,51 @@ public class PortDictionary {
         SERVICES.put(1521, "Oracle Database");
         SERVICES.put(1723, "PPTP VPN");
         SERVICES.put(1883, "MQTT (IoT Messaging)");
+        SERVICES.put(1900, "SSDP (UPnP Discovery)");
         SERVICES.put(2049, "NFS (Network File System)");
         SERVICES.put(3000, "Node.js / React / Grafana Dev");
         SERVICES.put(3306, "MySQL / MariaDB");
         SERVICES.put(3389, "RDP (Remote Desktop Protocol)");
         SERVICES.put(5000, "UPnP / Synology / Docker Registry / Flask");
+        SERVICES.put(5040, "Windows TCP Service (System)");
+        SERVICES.put(5357, "WSDAPI (Windows Web Services on Devices)");
         SERVICES.put(5432, "PostgreSQL Database");
+        SERVICES.put(5555, "ADB (Android Debug Bridge)");
         SERVICES.put(5672, "RabbitMQ");
         SERVICES.put(5900, "VNC Remote Desktop");
         SERVICES.put(6379, "Redis Key-Value Store");
+        SERVICES.put(7000, "AirPlay Audio / Mirroring (Apple)");
+        SERVICES.put(7680, "WUDO (Windows Update Delivery Optimization)");
         SERVICES.put(8000, "HTTP Alternate / Django / Spring");
+        SERVICES.put(8008, "Google Cast / Chromecast (Smart TV / Android)");
+        SERVICES.put(8009, "Google Cast Secure");
         SERVICES.put(8080, "HTTP Alternate / Apache Tomcat / Proxy");
         SERVICES.put(8443, "HTTPS Alternate / Tomcat SSL");
         SERVICES.put(8888, "HTTP Alternate / Jupyter Notebook");
         SERVICES.put(9000, "Portainer / SonarQube / PHP-FPM");
         SERVICES.put(9090, "Prometheus / Cockpit Web UI");
+        SERVICES.put(9100, "RAW Network Printer (JetDirect)");
         SERVICES.put(9200, "Elasticsearch REST API");
         SERVICES.put(27017, "MongoDB NoSQL Database");
+        SERVICES.put(62078, "Apple Mobile Device Sync (iPhone / iPad)");
     }
 
     public static final int[] COMMON_PORTS = {
-            21, 22, 23, 25, 53, 80, 110, 135, 139, 143,
-            443, 445, 993, 995, 1433, 1521, 3306, 3389,
-            5000, 5432, 5900, 6379, 8000, 8080, 8443,
-            8888, 9000, 9200, 27017
+            21, 22, 53, 80, 135, 139, 443, 445, 1433, 3306,
+            3389, 5000, 5040, 5357, 5555, 7000, 7680, 8000,
+            8008, 8080, 8443, 8888, 9000, 9100, 62078
+    };
+
+    public static final int[] WINDOWS_PORTS = {
+            135, 139, 445, 5040, 5357, 7680, 80, 443, 8080, 1433, 3306, 3389
+    };
+
+    public static final int[] ROUTER_PORTS = {
+            53, 80, 443, 8080, 8443, 1900, 22, 23, 8000
+    };
+
+    public static final int[] MOBILE_PORTS = {
+            80, 443, 5000, 5555, 7000, 8008, 8009, 8080, 62078
     };
 
     public static final int[] WEB_PORTS = {

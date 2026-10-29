@@ -166,11 +166,15 @@ public class PortScanner {
 
             return new PortResult(port, "TCP", PortState.OPEN, service, latencyMs, banner);
         } catch (SocketTimeoutException e) {
-            return new PortResult(port, "TCP", PortState.FILTERED, PortDictionary.getServiceName(port), timeoutMs, "Timeout / Firewall Drop");
+            return new PortResult(port, "TCP", PortState.FILTERED, PortDictionary.getServiceName(port), timeoutMs, "Timeout (Tường lửa chặn / Drop)");
         } catch (ConnectException e) {
-            return new PortResult(port, "TCP", PortState.CLOSED, PortDictionary.getServiceName(port), 0.5, "Closed (TCP RST)");
+            long latencyNano = System.nanoTime() - startNano;
+            double latencyMs = latencyNano / 1_000_000.0;
+            return new PortResult(port, "TCP", PortState.CLOSED, PortDictionary.getServiceName(port), latencyMs, "Đóng (Nhận phản hồi TCP RST trong " + String.format("%.2f ms", latencyMs) + ")");
         } catch (Exception e) {
-            return new PortResult(port, "TCP", PortState.FILTERED, PortDictionary.getServiceName(port), 0.0, e.getMessage());
+            long latencyNano = System.nanoTime() - startNano;
+            double latencyMs = latencyNano / 1_000_000.0;
+            return new PortResult(port, "TCP", PortState.FILTERED, PortDictionary.getServiceName(port), latencyMs, e.getMessage());
         }
     }
 
@@ -295,6 +299,23 @@ public class PortScanner {
                 if (banner.length() > 65) banner = banner.substring(0, 62) + "...";
                 return banner;
             }
+
+            // 7. Windows Services
+            if (port == 135) return "Microsoft Windows RPC Endpoint Mapper (Cổng mở)";
+            if (port == 5357) return "Windows Web Services on Devices (WSDAPI Cổng mở)";
+            if (port == 7680) return "Windows Update Delivery Optimization (WUDO Cổng mở)";
+            if (port == 3389) return "Microsoft Remote Desktop Protocol (RDP Cổng mở)";
+
+            // 8. Mobile & Media Devices
+            if (port == 8008 || port == 8009) return "Google Cast / Chromecast Daemon (Smart TV / Android)";
+            if (port == 62078) return "Apple Mobile Device Sync Service (iOS Sync)";
+            if (port == 7000) return "Apple AirPlay Screen & Audio Service";
+            if (port == 5555) return "Android ADB Debug Bridge Daemon";
+
+            // 9. Printing & Network Services
+            if (port == 9100) return "RAW JetDirect Network Printing";
+            if (port == 631) return "IPP Internet Printing Protocol";
+            if (port == 53) return "DNS Server (Domain Name System)";
 
         } catch (Exception ignored) {}
         return "Kết nối thành công (Cổng mở)";

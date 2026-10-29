@@ -48,7 +48,7 @@ public class MainWindow extends JFrame {
     private final JSpinner spinTimeout = new JSpinner(new SpinnerNumberModel(300, 50, 3000, 50));
     private final JSpinner spinThreads = new JSpinner(new SpinnerNumberModel(40, 5, 200, 5));
     private final JCheckBox chkGrabBanner = new JCheckBox("Lấy Banner dịch vụ", true);
-    private final JCheckBox chkOnlyOpen = new JCheckBox("Chỉ hiện cổng MỞ", true);
+    private final JCheckBox chkOnlyOpen = new JCheckBox("Chỉ hiện cổng MỞ", false);
     private final ModernButton btnStartPortScan = new ModernButton("Bắt đầu quét Port", Theme.SUCCESS_GREEN);
     private final ModernButton btnStopPortScan = new ModernButton("Dừng quét", Theme.DANGER_RED);
     private final JProgressBar portProgressBar = new JProgressBar(0, 100);
@@ -1169,8 +1169,24 @@ public class MainWindow extends JFrame {
         NetworkDevice dev = getSelectedDevice();
         if (dev != null) {
             txtTargetIp.setText(dev.getIpAddress());
+            if (dev.isGateway()) {
+                txtPorts.setText(formatPortList(PortDictionary.ROUTER_PORTS));
+            } else if (dev.isLocalHost()) {
+                txtPorts.setText(formatPortList(PortDictionary.WINDOWS_PORTS));
+            } else {
+                String nameLower = dev.getHostName().toLowerCase();
+                if (nameLower.contains("apple") || nameLower.contains("iphone") || nameLower.contains("ipad")) {
+                    txtPorts.setText(formatPortList(PortDictionary.MOBILE_PORTS));
+                } else if (nameLower.contains("android") || nameLower.contains("samsung") || nameLower.contains("xiaomi")) {
+                    txtPorts.setText(formatPortList(PortDictionary.MOBILE_PORTS));
+                } else if (nameLower.contains("windows") || nameLower.contains("pc") || nameLower.contains("dell") || nameLower.contains("asus") || nameLower.contains("lenovo")) {
+                    txtPorts.setText(formatPortList(PortDictionary.WINDOWS_PORTS));
+                } else {
+                    txtPorts.setText(formatPortList(PortDictionary.COMMON_PORTS));
+                }
+            }
             tabbedPane.setSelectedIndex(1); // Chuyển sang Tab 2
-            log("Đã chọn thiết bị: " + dev.getIpAddress() + " (" + dev.getHostName() + ") để quét cổng.");
+            log("Đã chọn thiết bị: " + dev.getIpAddress() + " (" + dev.getHostName() + ") để quét cổng. Đã gợi ý danh sách cổng phù hợp.");
         } else {
             JOptionPane.showMessageDialog(this, "Vui lòng chọn một thiết bị trong bảng trước!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
         }
