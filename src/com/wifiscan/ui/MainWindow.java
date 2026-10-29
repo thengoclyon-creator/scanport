@@ -57,9 +57,13 @@ public class MainWindow extends JFrame {
     private ModernTable portTable;
     private final List<PortResult> currentOpenPorts = new ArrayList<>();
 
-    // Tab 3: Khoảng cách & Radar
-    private final RadarPanel radarPanel = new RadarPanel();
+    // Tab 3: Cự Ly Client ➔ Máy Quét
+    private final RadarPanel radarPanel = new RadarPanel(RadarPanel.RadarMode.CLIENT_TO_SCANNER);
     private final DistanceCard distanceCard = new DistanceCard();
+
+    // Tab 4: Cự Ly Client ➔ AP Router
+    private final RadarPanel radarApPanel = new RadarPanel(RadarPanel.RadarMode.CLIENT_TO_AP);
+    private final ApDistanceCard apDistanceCard = new ApDistanceCard();
 
     // Tab 4: Logs & Export
     private final JTextArea txtLogs = new JTextArea();
@@ -152,11 +156,12 @@ public class MainWindow extends JFrame {
         tabbedPane.setForeground(Theme.TEXT_MAIN);
         tabbedPane.setFont(Theme.FONT_BOLD);
 
-        tabbedPane.addTab("  1. Do Thiet Bi Wi-Fi  ", createLanTab());
-        tabbedPane.addTab("  2. Quet Cong (Port Scan)  ", createPortTab());
-        tabbedPane.addTab("  3. Do Khoang Cach & Radar  ", createDistanceTab());
-        tabbedPane.addTab("  4. Nhat Ky & Xuat File  ", createLogTab());
-        tabbedPane.addTab("  5. Quet Wi-Fi Cong Cong  ", createPublicWifiTab());
+        tabbedPane.addTab("  1. Dò Thiết Bị Wi-Fi  ", createLanTab());
+        tabbedPane.addTab("  2. Quét Cổng (Port Scan)  ", createPortTab());
+        tabbedPane.addTab("  3. Cự Ly: Client ➔ Máy Quét  ", createDistanceTab());
+        tabbedPane.addTab("  4. Cự Ly: Client ➔ AP Router  ", createApDistanceTab());
+        tabbedPane.addTab("  5. Quét Wi-Fi Xung Quanh  ", createPublicWifiTab());
+        tabbedPane.addTab("  6. Nhật Ký & Báo Cáo  ", createLogTab());
     }
 
     // ==========================================
@@ -185,9 +190,13 @@ public class MainWindow extends JFrame {
         btnSelectForPortScan.addActionListener(e -> selectCurrentDeviceForPortScan());
         leftCtrl.add(btnSelectForPortScan);
 
-        ModernButton btnSelectForDistance = new ModernButton("Xem chi tiết khoảng cách", new Color(147, 51, 234));
+        ModernButton btnSelectForDistance = new ModernButton("Cự ly ➔ Máy Quét", new Color(147, 51, 234));
         btnSelectForDistance.addActionListener(e -> selectCurrentDeviceForDistance());
         leftCtrl.add(btnSelectForDistance);
+
+        ModernButton btnSelectForApDistance = new ModernButton("Cự ly ➔ AP Router", new Color(6, 182, 212));
+        btnSelectForApDistance.addActionListener(e -> selectCurrentDeviceForApDistance());
+        leftCtrl.add(btnSelectForApDistance);
 
         // ── Thanh tiến trình ──
         JPanel progPanel = new JPanel(new BorderLayout(5, 5));
@@ -217,7 +226,7 @@ public class MainWindow extends JFrame {
 
 
         // Table
-        String[] cols = {"Địa chỉ IP", "Tên thiết bị / Loại", "Địa chỉ MAC", "Phân loại", "RTT (ms)", "Khoảng cách ước tính"};
+        String[] cols = {"Địa chỉ IP", "Tên thiết bị / Loại", "Địa chỉ MAC", "Phân loại", "RTT (ms)", "Cự ly ➔ Máy Quét", "Cự ly ➔ AP Router"};
 
         deviceTableModel = new DefaultTableModel(cols, 0) {
             @Override
@@ -233,6 +242,8 @@ public class MainWindow extends JFrame {
                 if (dev != null) {
                     distanceCard.displayDeviceDistance(dev, currentWifi);
                     radarPanel.setSelectedDevice(dev);
+                    apDistanceCard.displayDeviceDistance(dev, currentWifi);
+                    radarApPanel.setSelectedDevice(dev);
                     txtTargetIp.setText(dev.getIpAddress());
                 }
             }
@@ -488,7 +499,7 @@ public class MainWindow extends JFrame {
                 new EmptyBorder(10, 10, 10, 10)
         ));
 
-        JLabel lblRadarTitle = new JLabel("Bản đồ Radar Khoảng Cách Vô Tuyến 360°");
+        JLabel lblRadarTitle = new JLabel("Bản đồ Radar: Cự Ly Client ➔ Máy Quét Này (360°)");
         lblRadarTitle.setFont(Theme.FONT_TITLE);
         lblRadarTitle.setForeground(Theme.TEXT_MAIN);
         lblRadarTitle.setBorder(new EmptyBorder(0, 4, 8, 0));
@@ -496,7 +507,7 @@ public class MainWindow extends JFrame {
         left.add(lblRadarTitle, BorderLayout.NORTH);
         left.add(radarPanel, BorderLayout.CENTER);
 
-        // Bên phải: Thẻ hiển thị số liệu chi tiết
+        // Bên phải: Thẻ hiển thị số liệu chi tiết tới Máy quét
         distanceCard.setOnRecalculateListener(est -> {
             radarPanel.repaint();
             updateDeviceDistanceInTable(est);
@@ -504,6 +515,42 @@ public class MainWindow extends JFrame {
 
         panel.add(left);
         panel.add(distanceCard);
+
+        return panel;
+    }
+
+    // ==========================================
+    // TAB 4: ĐO KHOẢNG CÁCH CLIENT ➔ AP ROUTER
+    // ==========================================
+    private JPanel createApDistanceTab() {
+        JPanel panel = new JPanel(new GridLayout(1, 2, 12, 12));
+        panel.setOpaque(false);
+        panel.setBorder(new EmptyBorder(12, 16, 12, 16));
+
+        // Bên trái: Màn hình Radar tâm AP Router
+        JPanel left = new JPanel(new BorderLayout());
+        left.setBackground(Theme.BG_CARD);
+        left.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Theme.BORDER, 1),
+                new EmptyBorder(10, 10, 10, 10)
+        ));
+
+        JLabel lblRadarTitle = new JLabel("Bản đồ Radar: Cự Ly Client ➔ Bộ Phát Wi-Fi AP Router (360°)");
+        lblRadarTitle.setFont(Theme.FONT_TITLE);
+        lblRadarTitle.setForeground(Theme.TEXT_MAIN);
+        lblRadarTitle.setBorder(new EmptyBorder(0, 4, 8, 0));
+
+        left.add(lblRadarTitle, BorderLayout.NORTH);
+        left.add(radarApPanel, BorderLayout.CENTER);
+
+        // Bên phải: Thẻ hiển thị số liệu chi tiết tới AP Router
+        apDistanceCard.setOnRecalculateListener(est -> {
+            radarApPanel.repaint();
+            updateDeviceDistanceInTable(est);
+        });
+
+        panel.add(left);
+        panel.add(apDistanceCard);
 
         return panel;
     }
@@ -759,6 +806,7 @@ public class MainWindow extends JFrame {
                     discoveredDevices.add(device);
                     DistanceEstimate est = device.getDistanceEstimate();
                     String distStr = est != null ? est.getFormattedDistance() : "--";
+                    String distApStr = est != null ? est.getFormattedDistanceToAp() : "--";
 
                     deviceTableModel.addRow(new Object[]{
                             device.getIpAddress(),
@@ -766,13 +814,15 @@ public class MainWindow extends JFrame {
                             device.getMacAddress(),
                             device.getDeviceType(),
                             String.format("%.2f ms", device.getRttMs()),
-                            distStr
+                            distStr,
+                            distApStr
                     });
 
                     radarPanel.setDevices(discoveredDevices);
+                    radarApPanel.setDevices(discoveredDevices);
                     filterDevices(txtSearchDevice.getText());
-                    log(String.format("Phát hiện thiết bị Wi-Fi: %s (%s) - %s | Khoảng cách: %s",
-                            device.getIpAddress(), device.getHostName(), device.getDeviceType().getLabel(), distStr));
+                    log(String.format("Phát hiện thiết bị Wi-Fi: %s (%s) - %s | Cự ly Máy quét: %s | Cự ly AP: %s",
+                            device.getIpAddress(), device.getHostName(), device.getDeviceType().getLabel(), distStr, distApStr));
                 });
             }
 
@@ -781,6 +831,7 @@ public class MainWindow extends JFrame {
                 SwingUtilities.invokeLater(() -> {
                     DistanceEstimate est = device.getDistanceEstimate();
                     String distStr = est != null ? est.getFormattedDistance() : "--";
+                    String distApStr = est != null ? est.getFormattedDistanceToAp() : "--";
 
                     for (int i = 0; i < deviceTableModel.getRowCount(); i++) {
                         if (deviceTableModel.getValueAt(i, 0).equals(device.getIpAddress())) {
@@ -789,11 +840,13 @@ public class MainWindow extends JFrame {
                             deviceTableModel.setValueAt(device.getDeviceType(), i, 3);
                             deviceTableModel.setValueAt(String.format("%.2f ms", device.getRttMs()), i, 4);
                             deviceTableModel.setValueAt(distStr, i, 5);
+                            deviceTableModel.setValueAt(distApStr, i, 6);
                             break;
                         }
                     }
                     filterDevices(txtSearchDevice.getText());
                     radarPanel.setDevices(discoveredDevices);
+                    radarApPanel.setDevices(discoveredDevices);
                 });
             }
 
@@ -806,6 +859,7 @@ public class MainWindow extends JFrame {
                     log("Quét mạng Wi-Fi hoàn tất! Tổng cộng: " + devices.size() + " thiết bị.");
                     filterDevices(txtSearchDevice.getText());
                     radarPanel.setDevices(devices);
+                    radarApPanel.setDevices(devices);
                     if (!devices.isEmpty()) {
                         deviceTable.setRowSelectionInterval(0, 0);
                     }
@@ -1197,7 +1251,18 @@ public class MainWindow extends JFrame {
         if (dev != null) {
             distanceCard.displayDeviceDistance(dev, currentWifi);
             radarPanel.setSelectedDevice(dev);
-            tabbedPane.setSelectedIndex(2); // Chuyển sang Tab 3
+            tabbedPane.setSelectedIndex(2); // Chuyển sang Tab 3 (Cự ly Client ➔ Máy Quét)
+        } else {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn một thiết bị trong bảng trước!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+    private void selectCurrentDeviceForApDistance() {
+        NetworkDevice dev = getSelectedDevice();
+        if (dev != null) {
+            apDistanceCard.displayDeviceDistance(dev, currentWifi);
+            radarApPanel.setSelectedDevice(dev);
+            tabbedPane.setSelectedIndex(3); // Chuyển sang Tab 4 (Cự ly Client ➔ AP Router)
         } else {
             JOptionPane.showMessageDialog(this, "Vui lòng chọn một thiết bị trong bảng trước!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
         }
@@ -1210,6 +1275,7 @@ public class MainWindow extends JFrame {
                 int modelRow = deviceTable.convertRowIndexToModel(viewRow);
                 if (modelRow >= 0 && modelRow < deviceTableModel.getRowCount()) {
                     deviceTableModel.setValueAt(est.getFormattedDistance(), modelRow, 5);
+                    deviceTableModel.setValueAt(est.getFormattedDistanceToAp(), modelRow, 6);
                 }
             } catch (Exception ignored) {}
         }
@@ -1276,12 +1342,14 @@ public class MainWindow extends JFrame {
             File file = chooser.getSelectedFile();
             try (PrintWriter writer = new PrintWriter(file)) {
                 if ("csv".equalsIgnoreCase(format)) {
-                    writer.println("IP,Hostname,MAC,Type,RTT_ms,Distance");
+                    writer.println("IP,Hostname,MAC,Type,RTT_ms,Distance_To_Scanner_m,Distance_To_AP_m");
                     for (NetworkDevice d : discoveredDevices) {
-                        writer.printf("%s,%s,%s,%s,%.2f,%s\n",
+                        DistanceEstimate est = d.getDistanceEstimate();
+                        writer.printf("%s,%s,%s,%s,%.2f,%.2f,%.2f\n",
                                 d.getIpAddress(), d.getHostName(), d.getMacAddress(),
                                 d.getDeviceType().name(), d.getRttMs(),
-                                d.getDistanceEstimate() != null ? d.getDistanceEstimate().getDistanceMeters() : 0);
+                                est != null ? est.getDistanceMeters() : 0.0,
+                                est != null ? est.getDistanceToApMeters() : 0.0);
                     }
                 } else if ("json".equalsIgnoreCase(format)) {
                     writer.println("{\n  \"wifi\": {");
@@ -1291,9 +1359,11 @@ public class MainWindow extends JFrame {
                     writer.println("  },\n  \"devices\": [");
                     for (int i = 0; i < discoveredDevices.size(); i++) {
                         NetworkDevice d = discoveredDevices.get(i);
-                        writer.printf("    {\"ip\": \"%s\", \"host\": \"%s\", \"distance\": %.2f}%s\n",
+                        DistanceEstimate est = d.getDistanceEstimate();
+                        writer.printf("    {\"ip\": \"%s\", \"host\": \"%s\", \"distance_scanner\": %.2f, \"distance_ap\": %.2f}%s\n",
                                 d.getIpAddress(), d.getHostName(),
-                                d.getDistanceEstimate() != null ? d.getDistanceEstimate().getDistanceMeters() : 0,
+                                est != null ? est.getDistanceMeters() : 0.0,
+                                est != null ? est.getDistanceToApMeters() : 0.0,
                                 (i < discoveredDevices.size() - 1 ? "," : ""));
                     }
                     writer.println("  ]\n}");
@@ -1306,9 +1376,12 @@ public class MainWindow extends JFrame {
                     writer.println("Gateway: " + currentWifi.getGatewayIp());
                     writer.println("\nDANH SÁCH THIẾT BỊ WI-FI:");
                     for (NetworkDevice d : discoveredDevices) {
-                        writer.printf("- %s (%s) | %s | RTT: %.2f ms | KC: %s\n",
+                        DistanceEstimate est = d.getDistanceEstimate();
+                        writer.printf("- %s (%s) | %s | RTT: %.2f ms | Cự ly Máy quét: %s | Cự ly AP: %s\n",
                                 d.getIpAddress(), d.getHostName(), d.getDeviceType().getLabel(),
-                                d.getRttMs(), d.getDistanceEstimate() != null ? d.getDistanceEstimate().getFormattedDistance() : "--");
+                                d.getRttMs(),
+                                est != null ? est.getFormattedDistance() : "--",
+                                est != null ? est.getFormattedDistanceToAp() : "--");
                     }
                     writer.println("\nDANH SÁCH CỔNG MỞ TRÊN MỤC TIÊU (" + txtTargetIp.getText() + "):");
                     for (PortResult p : currentOpenPorts) {

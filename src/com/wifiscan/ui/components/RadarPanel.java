@@ -13,16 +13,29 @@ import java.util.List;
 
 /**
  * Màn hình Radar quét Wi-Fi trực quan 360 độ:
- * Vẽ các thiết bị theo khoảng cách tính toán thực tế quanh máy Scanner.
+ * Hỗ trợ 2 chế độ hiển thị:
+ * 1. CLIENT_TO_SCANNER: Tâm là Máy Quét này (Scanner - 0m)
+ * 2. CLIENT_TO_AP: Tâm là Bộ phát Wi-Fi (Router AP - 0m)
  */
 public class RadarPanel extends JPanel {
+
+    public enum RadarMode {
+        CLIENT_TO_SCANNER,
+        CLIENT_TO_AP
+    }
 
     private final List<NetworkDevice> devices = new ArrayList<>();
     private NetworkDevice selectedDevice = null;
     private double sweepAngle = 0; // độ
     private final Timer animationTimer;
+    private RadarMode radarMode = RadarMode.CLIENT_TO_SCANNER;
 
     public RadarPanel() {
+        this(RadarMode.CLIENT_TO_SCANNER);
+    }
+
+    public RadarPanel(RadarMode mode) {
+        this.radarMode = mode;
         setOpaque(false);
         setBackground(Theme.BG_DARK);
 
@@ -43,13 +56,13 @@ public class RadarPanel extends JPanel {
 
                 for (int i = 0; i < devices.size(); i++) {
                     NetworkDevice dev = devices.get(i);
-                    double dist = dev.getDistanceEstimate() != null ? dev.getDistanceEstimate().getDistanceMeters() : 1.0;
+                    double dist = getDeviceDistance(dev);
                     double angleRad = Math.toRadians((i * 360.0 / Math.max(1, devices.size())) - 90);
                     double rRatio = Math.min(dist / 20.0, 1.0);
                     int px = cx + (int) (rRatio * maxRadius * Math.cos(angleRad));
                     int py = cy + (int) (rRatio * maxRadius * Math.sin(angleRad));
 
-                    if (Point2D.distance(e.getX(), e.getY(), px, py) <= 12) {
+                    if (Point2D.distance(e.getX(), e.getY(), px, py) <= 14) {
                         selectedDevice = dev;
                         repaint();
                         break;
@@ -57,6 +70,15 @@ public class RadarPanel extends JPanel {
                 }
             }
         });
+    }
+
+    public void setRadarMode(RadarMode mode) {
+        this.radarMode = mode;
+        repaint();
+    }
+
+    public RadarMode getRadarMode() {
+        return radarMode;
     }
 
     public void setDevices(List<NetworkDevice> devList) {
@@ -70,6 +92,15 @@ public class RadarPanel extends JPanel {
     public void setSelectedDevice(NetworkDevice dev) {
         this.selectedDevice = dev;
         repaint();
+    }
+
+    private double getDeviceDistance(NetworkDevice dev) {
+        if (dev.getDistanceEstimate() == null) return 2.5;
+        if (radarMode == RadarMode.CLIENT_TO_AP) {
+            return dev.getDistanceEstimate().getDistanceToApMeters();
+        } else {
+            return dev.getDistanceEstimate().getDistanceMeters();
+        }
     }
 
     @Override
@@ -108,13 +139,12 @@ public class RadarPanel extends JPanel {
         g2.drawLine(cx - maxRadius, cy, cx + maxRadius, cy);
         g2.drawLine(cx, cy - maxRadius, cx, cy + maxRadius);
 
-        // 4. Vẽ quạt quét Radar Sweep có vệt sáng mờ
+        // 4. Vẽ quạt quét Radar Sweep
         int sweepR = maxRadius;
         double radSweep = Math.toRadians(sweepAngle);
         int sx = cx + (int) (sweepR * Math.cos(radSweep));
         int sy = cy + (int) (sweepR * Math.sin(radSweep));
 
-        // Vệt sáng tam giác quét
         Polygon sweepPoly = new Polygon();
         sweepPoly.addPoint(cx, cy);
         for (int a = 0; a <= 25; a += 5) {
@@ -124,38 +154,56 @@ public class RadarPanel extends JPanel {
                     cy + (int) (sweepR * Math.sin(trailRad))
             );
         }
+
+        Color sweepColor = (radarMode == RadarMode.CLIENT_TO_AP) ? new Color(6, 182, 212) : new Color(16, 185, 129);
         g2.setPaint(new RadialGradientPaint(
                 new Point2D.Float(cx, cy), maxRadius,
                 new float[]{0.0f, 1.0f},
-                new Color[]{new Color(16, 185, 129, 90), new Color(16, 185, 129, 0)}
+                new Color[]{new Color(sweepColor.getRed(), sweepColor.getGreen(), sweepColor.getBlue(), 90),
+                           new Color(sweepColor.getRed(), sweepColor.getGreen(), sweepColor.getBlue(), 0)}
         ));
         g2.fill(sweepPoly);
 
         // Tia quét chính
-        g2.setColor(new Color(52, 211, 153));
+        g2.setColor(sweepColor);
         g2.setStroke(new BasicStroke(1.5f));
         g2.drawLine(cx, cy, sx, sy);
 
-        // 5. Vẽ Scanner ở tâm (0m)
-        g2.setColor(new Color(99, 102, 241));
-        g2.fillOval(cx - 7, cy - 7, 14, 14);
-        g2.setColor(Color.WHITE);
-        g2.drawOval(cx - 7, cy - 7, 14, 14);
-        g2.setFont(Theme.FONT_BOLD);
-        g2.setColor(new Color(199, 210, 254));
-        g2.drawString("Scanner (Máy này)", cx - 48, cy + 22);
+        // 5. Vẽ Đối tượng ở tâm (0m) theo chế độ
+        if (radarMode == RadarMode.CLIENT_TO_AP) {
+            // Tâm là Router / AP (Bộ phát Wi-Fi)
+            g2.setColor(Theme.ACCENT_CYAN);
+            g2.fillOval(cx - 8, cy - 8, 16, 16);
+            g2.setColor(Color.WHITE);
+            g2.drawOval(cx - 8, cy - 8, 16, 16);
+            g2.setFont(Theme.FONT_BOLD);
+            g2.setColor(new Color(165, 243, 252));
+            g2.drawString("Bộ phát AP Router (0m)", cx - 62, cy + 24);
+        } else {
+            // Tâm là Scanner (Máy này)
+            g2.setColor(new Color(99, 102, 241));
+            g2.fillOval(cx - 7, cy - 7, 14, 14);
+            g2.setColor(Color.WHITE);
+            g2.drawOval(cx - 7, cy - 7, 14, 14);
+            g2.setFont(Theme.FONT_BOLD);
+            g2.setColor(new Color(199, 210, 254));
+            g2.drawString("Scanner (Máy này - 0m)", cx - 62, cy + 24);
+        }
 
-        // 6. Vẽ các thiết bị Client/Gateway lên Radar
+        // 6. Vẽ các thiết bị lên Radar
         int totalDevs = devices.size();
         for (int i = 0; i < totalDevs; i++) {
             NetworkDevice dev = devices.get(i);
-            if (dev.isLocalHost()) continue;
 
-            double dist = dev.getDistanceEstimate() != null ? dev.getDistanceEstimate().getDistanceMeters() : 2.5;
+            // Bỏ qua nếu thiết bị trùng với tâm
+            if (radarMode == RadarMode.CLIENT_TO_AP && dev.isGateway()) continue;
+            if (radarMode == RadarMode.CLIENT_TO_SCANNER && dev.isLocalHost()) continue;
+
+            double dist = getDeviceDistance(dev);
             double angleRad = Math.toRadians((i * 360.0 / Math.max(1, totalDevs)) - 90);
 
             // Bán kính hiển thị tỉ lệ theo khoảng cách thực
-            double rRatio = Math.min(Math.max(dist / 20.0, 0.1), 0.95);
+            double rRatio = Math.min(Math.max(dist / 20.0, 0.08), 0.95);
             int px = cx + (int) (rRatio * maxRadius * Math.cos(angleRad));
             int py = cy + (int) (rRatio * maxRadius * Math.sin(angleRad));
 
@@ -170,6 +218,8 @@ public class RadarPanel extends JPanel {
             // Màu chấm thiết bị
             if (dev.isGateway()) {
                 g2.setColor(Theme.ACCENT_CYAN); // Router AP màu cyan
+            } else if (dev.isLocalHost()) {
+                g2.setColor(new Color(167, 139, 250)); // Máy Scanner màu tím nhạt
             } else {
                 g2.setColor(Theme.SUCCESS_GREEN); // Client màu xanh lá
             }
