@@ -12,8 +12,8 @@ import java.util.List;
 
 /**
  * Bộ xử lý tính toán và đo lường khoảng cách vật lý thực tế:
- * 1. Khoảng cách Client ➔ Máy Quét (Client to Scanner)
- * 2. Khoảng cách Client ➔ Bộ phát Wi-Fi (Client to Access Point Router)
+ * 1. Khoảng cách Client -> Máy Quét (Client to Scanner)
+ * 2. Khoảng cách Client -> Bộ phát Wi-Fi (Client to Access Point Router)
  * Kết hợp đo chỉ số thật qua Multi-Probe RTT, RSSI và mô hình suy hao sóng vô tuyến.
  */
 public class DistanceCalculator {
@@ -338,8 +338,8 @@ public class DistanceCalculator {
 
     /**
      * Tính toán khoảng cách hai chiều chuẩn xác:
-     * 1. Client ➔ Máy Quét (Scanner)
-     * 2. Client ➔ Bộ phát Wi-Fi (AP Router)
+     * 1. Client -> Máy Quét (Scanner)
+     * 2. Client -> Bộ phát Wi-Fi (AP Router)
      */
     public static DistanceEstimate calculateDistance(String targetIp, boolean isGateway, boolean isLocalHost,
                                                      WifiInfo wifiInfo, Double knownRtt, Double customPathLossExp, String mac) {

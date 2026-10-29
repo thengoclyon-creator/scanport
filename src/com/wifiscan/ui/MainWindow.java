@@ -57,11 +57,11 @@ public class MainWindow extends JFrame {
     private ModernTable portTable;
     private final List<PortResult> currentOpenPorts = new ArrayList<>();
 
-    // Tab 3: Cự Ly Client ➔ Máy Quét
+    // Tab 3: Cự Ly Client -> Máy Quét
     private final RadarPanel radarPanel = new RadarPanel(RadarPanel.RadarMode.CLIENT_TO_SCANNER);
     private final DistanceCard distanceCard = new DistanceCard();
 
-    // Tab 4: Cự Ly Client ➔ AP Router
+    // Tab 4: Cự Ly Client -> AP Router
     private final RadarPanel radarApPanel = new RadarPanel(RadarPanel.RadarMode.CLIENT_TO_AP);
     private final ApDistanceCard apDistanceCard = new ApDistanceCard();
 
@@ -158,8 +158,8 @@ public class MainWindow extends JFrame {
 
         tabbedPane.addTab("  1. Dò Thiết Bị Wi-Fi  ", createLanTab());
         tabbedPane.addTab("  2. Quét Cổng (Port Scan)  ", createPortTab());
-        tabbedPane.addTab("  3. Cự Ly: Client ➔ Máy Quét  ", createDistanceTab());
-        tabbedPane.addTab("  4. Cự Ly: Client ➔ AP Router  ", createApDistanceTab());
+        tabbedPane.addTab("  3. Cự Ly: Client -> Máy Quét  ", createDistanceTab());
+        tabbedPane.addTab("  4. Cự Ly: Client -> AP Router  ", createApDistanceTab());
         tabbedPane.addTab("  5. Quét Wi-Fi Xung Quanh  ", createPublicWifiTab());
         tabbedPane.addTab("  6. Nhật Ký & Báo Cáo  ", createLogTab());
     }
@@ -190,11 +190,11 @@ public class MainWindow extends JFrame {
         btnSelectForPortScan.addActionListener(e -> selectCurrentDeviceForPortScan());
         leftCtrl.add(btnSelectForPortScan);
 
-        ModernButton btnSelectForDistance = new ModernButton("Cự ly ➔ Máy Quét", new Color(147, 51, 234));
+        ModernButton btnSelectForDistance = new ModernButton("Cự ly -> Máy Quét", new Color(147, 51, 234));
         btnSelectForDistance.addActionListener(e -> selectCurrentDeviceForDistance());
         leftCtrl.add(btnSelectForDistance);
 
-        ModernButton btnSelectForApDistance = new ModernButton("Cự ly ➔ AP Router", new Color(6, 182, 212));
+        ModernButton btnSelectForApDistance = new ModernButton("Cự ly -> AP Router", new Color(6, 182, 212));
         btnSelectForApDistance.addActionListener(e -> selectCurrentDeviceForApDistance());
         leftCtrl.add(btnSelectForApDistance);
 
@@ -226,7 +226,7 @@ public class MainWindow extends JFrame {
 
 
         // Table
-        String[] cols = {"Địa chỉ IP", "Tên thiết bị / Loại", "Địa chỉ MAC", "Phân loại", "RTT (ms)", "Cự ly ➔ Máy Quét", "Cự ly ➔ AP Router"};
+        String[] cols = {"Địa chỉ IP", "Tên thiết bị / Loại", "Địa chỉ MAC", "Phân loại", "RTT (ms)", "Cự ly -> Máy Quét", "Cự ly -> AP Router"};
 
         deviceTableModel = new DefaultTableModel(cols, 0) {
             @Override
@@ -499,7 +499,7 @@ public class MainWindow extends JFrame {
                 new EmptyBorder(10, 10, 10, 10)
         ));
 
-        JLabel lblRadarTitle = new JLabel("Bản đồ Radar: Cự Ly Client ➔ Máy Quét Này (360°)");
+        JLabel lblRadarTitle = new JLabel("Bản đồ Radar: Cự Ly Client -> Máy Quét Này (360°)");
         lblRadarTitle.setFont(Theme.FONT_TITLE);
         lblRadarTitle.setForeground(Theme.TEXT_MAIN);
         lblRadarTitle.setBorder(new EmptyBorder(0, 4, 8, 0));
@@ -520,7 +520,7 @@ public class MainWindow extends JFrame {
     }
 
     // ==========================================
-    // TAB 4: ĐO KHOẢNG CÁCH CLIENT ➔ AP ROUTER
+    // TAB 4: ĐO KHOẢNG CÁCH CLIENT -> AP ROUTER
     // ==========================================
     private JPanel createApDistanceTab() {
         JPanel panel = new JPanel(new GridLayout(1, 2, 12, 12));
@@ -535,7 +535,7 @@ public class MainWindow extends JFrame {
                 new EmptyBorder(10, 10, 10, 10)
         ));
 
-        JLabel lblRadarTitle = new JLabel("Bản đồ Radar: Cự Ly Client ➔ Bộ Phát Wi-Fi AP Router (360°)");
+        JLabel lblRadarTitle = new JLabel("Bản đồ Radar: Cự Ly Client -> Bộ Phát Wi-Fi AP Router (360°)");
         lblRadarTitle.setFont(Theme.FONT_TITLE);
         lblRadarTitle.setForeground(Theme.TEXT_MAIN);
         lblRadarTitle.setBorder(new EmptyBorder(0, 4, 8, 0));
@@ -1251,7 +1251,7 @@ public class MainWindow extends JFrame {
         if (dev != null) {
             distanceCard.displayDeviceDistance(dev, currentWifi);
             radarPanel.setSelectedDevice(dev);
-            tabbedPane.setSelectedIndex(2); // Chuyển sang Tab 3 (Cự ly Client ➔ Máy Quét)
+            tabbedPane.setSelectedIndex(2); // Chuyển sang Tab 3 (Cự ly Client -> Máy Quét)
         } else {
             JOptionPane.showMessageDialog(this, "Vui lòng chọn một thiết bị trong bảng trước!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
         }
@@ -1262,7 +1262,7 @@ public class MainWindow extends JFrame {
         if (dev != null) {
             apDistanceCard.displayDeviceDistance(dev, currentWifi);
             radarApPanel.setSelectedDevice(dev);
-            tabbedPane.setSelectedIndex(3); // Chuyển sang Tab 4 (Cự ly Client ➔ AP Router)
+            tabbedPane.setSelectedIndex(3); // Chuyển sang Tab 4 (Cự ly Client -> AP Router)
         } else {
             JOptionPane.showMessageDialog(this, "Vui lòng chọn một thiết bị trong bảng trước!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
         }

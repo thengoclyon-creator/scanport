@@ -46,18 +46,25 @@ public class DistanceCard extends JPanel {
 
     private void initUI() {
         // 1. Header
-        JPanel topPanel = new JPanel(new BorderLayout());
+        JPanel topPanel = new JPanel();
+        topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.Y_AXIS));
         topPanel.setOpaque(false);
+
+        JPanel badgeRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        badgeRow.setOpaque(false);
+        JLabel lblBadge = new JLabel("[HỆ QUY CHIẾU: MÁY QUÉT NÀY (SCANNER)]");
+        lblBadge.setFont(Theme.FONT_BOLD);
+        lblBadge.setForeground(new Color(167, 139, 250));
+        badgeRow.add(lblBadge);
 
         lblTargetTitle.setFont(Theme.FONT_TITLE);
         lblTargetTitle.setForeground(Theme.TEXT_MAIN);
+        lblTargetTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+        badgeRow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel lblBadge = new JLabel("HỆ QUY CHIẾU: MÁY QUÉT NÀY (SCANNER)");
-        lblBadge.setFont(Theme.FONT_BOLD);
-        lblBadge.setForeground(new Color(167, 139, 250));
-
-        topPanel.add(lblTargetTitle, BorderLayout.WEST);
-        topPanel.add(lblBadge, BorderLayout.EAST);
+        topPanel.add(badgeRow);
+        topPanel.add(Box.createVerticalStrut(6));
+        topPanel.add(lblTargetTitle);
         add(topPanel, BorderLayout.NORTH);
 
         // 2. Center: Big distance display + Gauge bar
@@ -121,8 +128,13 @@ public class DistanceCard extends JPanel {
 
         btnLiveProbe.addActionListener(e -> performLiveProbe());
 
+        JPanel btnWrapper = new JPanel(new GridBagLayout());
+        btnWrapper.setOpaque(false);
+        btnLiveProbe.setPreferredSize(new Dimension(230, 42));
+        btnWrapper.add(btnLiveProbe);
+
         ctrlRow.add(sliderBox, BorderLayout.CENTER);
-        ctrlRow.add(btnLiveProbe, BorderLayout.EAST);
+        ctrlRow.add(btnWrapper, BorderLayout.EAST);
 
         centerPanel.add(ctrlRow);
         add(centerPanel, BorderLayout.CENTER);
@@ -188,7 +200,16 @@ public class DistanceCard extends JPanel {
     }
 
     private void updateEstimate(NetworkDevice device, WifiInfo wifiInfo, DistanceEstimate est) {
-        lblTargetTitle.setText(String.format("Cự ly: %s (%s) ➔ Máy Quét này", device.getIpAddress(), device.getHostName()));
+        String host = device.getHostName();
+        if (host != null && host.startsWith("Thiết bị Wi-Fi (" + device.getIpAddress() + ") - ")) {
+            host = host.substring(("Thiết bị Wi-Fi (" + device.getIpAddress() + ") - ").length());
+        } else if (host != null && host.equals("Thiết bị Wi-Fi (" + device.getIpAddress() + ")")) {
+            host = device.getDeviceType().getLabel();
+        }
+        if (host != null && host.length() > 34) {
+            host = host.substring(0, 31) + "...";
+        }
+        lblTargetTitle.setText(String.format("Cự ly: %s (%s) -> Máy Quét", device.getIpAddress(), host != null ? host : "Thiết bị Wi-Fi"));
 
         if (device.isLocalHost()) {
             lblHeroDistance.setText("0.00 mét");

@@ -46,18 +46,25 @@ public class ApDistanceCard extends JPanel {
 
     private void initUI() {
         // 1. Header
-        JPanel topPanel = new JPanel(new BorderLayout());
+        JPanel topPanel = new JPanel();
+        topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.Y_AXIS));
         topPanel.setOpaque(false);
+
+        JPanel badgeRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        badgeRow.setOpaque(false);
+        JLabel lblBadge = new JLabel("[HỆ QUY CHIẾU: BỘ PHÁT AP ROUTER]");
+        lblBadge.setFont(Theme.FONT_BOLD);
+        lblBadge.setForeground(Theme.ACCENT_CYAN);
+        badgeRow.add(lblBadge);
 
         lblTargetTitle.setFont(Theme.FONT_TITLE);
         lblTargetTitle.setForeground(Theme.TEXT_MAIN);
+        lblTargetTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+        badgeRow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel lblBadge = new JLabel("HỆ QUY CHIẾU: BỘ PHÁT AP ROUTER");
-        lblBadge.setFont(Theme.FONT_BOLD);
-        lblBadge.setForeground(Theme.ACCENT_CYAN);
-
-        topPanel.add(lblTargetTitle, BorderLayout.WEST);
-        topPanel.add(lblBadge, BorderLayout.EAST);
+        topPanel.add(badgeRow);
+        topPanel.add(Box.createVerticalStrut(6));
+        topPanel.add(lblTargetTitle);
         add(topPanel, BorderLayout.NORTH);
 
         // 2. Center Panel: Hero Distance + Metrics + Gauge
@@ -127,8 +134,13 @@ public class ApDistanceCard extends JPanel {
 
         btnLiveProbe.addActionListener(e -> performLiveApProbe());
 
+        JPanel btnWrapper = new JPanel(new GridBagLayout());
+        btnWrapper.setOpaque(false);
+        btnLiveProbe.setPreferredSize(new Dimension(230, 42));
+        btnWrapper.add(btnLiveProbe);
+
         ctrlRow.add(sliderBox, BorderLayout.CENTER);
-        ctrlRow.add(btnLiveProbe, BorderLayout.EAST);
+        ctrlRow.add(btnWrapper, BorderLayout.EAST);
 
         centerPanel.add(ctrlRow);
         add(centerPanel, BorderLayout.CENTER);
@@ -190,7 +202,16 @@ public class ApDistanceCard extends JPanel {
 
     private void updateEstimate(NetworkDevice device, WifiInfo wifiInfo, DistanceEstimate est) {
         String gwIp = (wifiInfo != null && wifiInfo.getGatewayIp() != null) ? wifiInfo.getGatewayIp() : "AP";
-        lblTargetTitle.setText(String.format("Cự ly: %s (%s) ➔ AP (%s)", device.getIpAddress(), device.getHostName(), gwIp));
+        String host = device.getHostName();
+        if (host != null && host.startsWith("Thiết bị Wi-Fi (" + device.getIpAddress() + ") - ")) {
+            host = host.substring(("Thiết bị Wi-Fi (" + device.getIpAddress() + ") - ").length());
+        } else if (host != null && host.equals("Thiết bị Wi-Fi (" + device.getIpAddress() + ")")) {
+            host = device.getDeviceType().getLabel();
+        }
+        if (host != null && host.length() > 34) {
+            host = host.substring(0, 31) + "...";
+        }
+        lblTargetTitle.setText(String.format("Cự ly: %s (%s) -> AP Router (%s)", device.getIpAddress(), host != null ? host : "Thiết bị Wi-Fi", gwIp));
 
         if (device.isGateway()) {
             lblHeroDistance.setText("0.00 mét");
@@ -289,7 +310,7 @@ public class ApDistanceCard extends JPanel {
                             "• RTT tới Gateway AP (%s): %.2f ms\n" +
                             "• RTT tới Client (%s): %.2f ms (Min: %.2fms, Max: %.2fms, Jitter: %.2fms)\n" +
                             "• Độ trễ sai biệt qua AP (Delta t): %.2f ms\n" +
-                            "• Cự ly Client ➔ AP mới đo được: %.2f mét\n" +
+                            "• Cự ly Client -> AP mới đo được: %.2f mét\n" +
                             "• Cường độ sóng tại AP: %d dBm (%s)",
                             gwIp, apRtt, targetIp, clientRtt, clientProbe.minRtt, clientProbe.maxRtt, clientProbe.jitter,
                             deltaT, newEst.getDistanceToApMeters(), newEst.getApRssiDbm(), newEst.getApSignalQuality());
@@ -364,3 +385,4 @@ public class ApDistanceCard extends JPanel {
         }
     }
 }
+

@@ -2,13 +2,13 @@ package com.wifiscan.model;
 
 /**
  * Kết quả đo lường và ước tính khoảng cách hai chiều:
- * 1. Khoảng cách Client ➔ Máy Quét (Client to Scanner)
- * 2. Khoảng cách Client ➔ Bộ phát Wi-Fi (Client to Access Point Router)
+ * 1. Khoảng cách Client -> Máy Quét (Client to Scanner)
+ * 2. Khoảng cách Client -> Bộ phát Wi-Fi (Client to Access Point Router)
  * Cùng các chỉ số đo đạc thực tế: RSSI, RTT, Jitter, chất lượng sóng.
  */
 public class DistanceEstimate {
 
-    // 1. Chỉ số Client ➔ Máy Quét (Scanner)
+    // 1. Chỉ số Client -> Máy Quét (Scanner)
     private final double distanceMeters;
     private final double minDistanceMeters;
     private final double maxDistanceMeters;
@@ -22,7 +22,7 @@ public class DistanceEstimate {
     private final String mathematicalFormula;
     private final String detailedAnalysis;
 
-    // 2. Chỉ số Client ➔ AP Router (Access Point)
+    // 2. Chỉ số Client -> AP Router (Access Point)
     private final double distanceToApMeters;
     private final double minDistanceToApMeters;
     private final double maxDistanceToApMeters;
@@ -70,7 +70,7 @@ public class DistanceEstimate {
              rssiDbm, Math.max(10, Math.min(100, 2 * (rssiDbm + 100))), rttMs);
     }
 
-    // Getters cho chiều Client ➔ Máy Quét
+    // Getters cho chiều Client -> Máy Quét
     public double getDistanceMeters() {
         return distanceMeters;
     }
@@ -126,7 +126,7 @@ public class DistanceEstimate {
         return String.format("%.2f mét (Khoảng: %.1f - %.1f m)", distanceMeters, minDistanceMeters, maxDistanceMeters);
     }
 
-    // Getters cho chiều Client ➔ Bộ phát Wi-Fi (AP Router)
+    // Getters cho chiều Client -> Bộ phát Wi-Fi (AP Router)
     public double getDistanceToApMeters() {
         return distanceToApMeters;
     }
