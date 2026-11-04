@@ -49,11 +49,11 @@ public class WifiInfo {
             return false;
         }
         ipStr = ipStr.trim();
-        // Luôn chấp nhận Gateway hoặc Local IP của Wi-Fi này
+        // Luôn chấp nhận Gateway hoặc Local IP hoặc localhost
         if (gatewayIp != null && gatewayIp.equals(ipStr)) {
             return true;
         }
-        if (localIp.equals(ipStr) || ipStr.equals("127.0.0.1")) {
+        if (localIp.equals(ipStr) || ipStr.equals("127.0.0.1") || ipStr.equalsIgnoreCase("localhost")) {
             return true;
         }
         try {
@@ -69,12 +69,54 @@ public class WifiInfo {
                 return false;
             }
 
+            // 1. Kiểm tra theo Subnet Mask hiện tại
+            boolean maskMatch = true;
             for (int i = 0; i < targetBytes.length; i++) {
                 if ((targetBytes[i] & maskBytes[i]) != (localBytes[i] & maskBytes[i])) {
-                    return false;
+                    maskMatch = false;
+                    break;
                 }
             }
-            return true;
+            if (maskMatch) {
+                return true;
+            }
+
+            // 2. Hỗ trợ mạng Wi-Fi trường học / doanh nghiệp dải rộng (/16 hoặc đa VLAN có Gateway chung)
+            // Lấy Gateway làm tham chiếu thêm nếu có
+            byte[] gwBytes = null;
+            if (gatewayIp != null && !gatewayIp.equals("0.0.0.0")) {
+                try {
+                    gwBytes = InetAddress.getByName(gatewayIp).getAddress();
+                } catch (Exception ignored) {}
+            }
+
+            if (targetBytes.length == 4) {
+                int t0 = targetBytes[0] & 0xFF;
+                int t1 = targetBytes[1] & 0xFF;
+                int l0 = localBytes[0] & 0xFF;
+                int l1 = localBytes[1] & 0xFF;
+
+                // Dải 10.x.x.x (Class A Private - rất phổ biến ở đại học/trường học như 10.12.x.x)
+                if (t0 == 10 && (l0 == 10 || (gwBytes != null && (gwBytes[0] & 0xFF) == 10))) {
+                    if (t1 == l1 || (gwBytes != null && t1 == (gwBytes[1] & 0xFF))) {
+                        return true;
+                    }
+                }
+
+                // Dải 172.16.x.x - 172.31.x.x (Class B Private)
+                if (t0 == 172 && (l0 == 172 || (gwBytes != null && (gwBytes[0] & 0xFF) == 172))) {
+                    if (t1 == l1 || (gwBytes != null && t1 == (gwBytes[1] & 0xFF))) {
+                        return true;
+                    }
+                }
+
+                // Dải 192.168.x.x (Class C Private)
+                if (t0 == 192 && t1 == 168 && (l0 == 192 && l1 == 168)) {
+                    return true;
+                }
+            }
+
+            return false;
         } catch (Exception e) {
             return false;
         }

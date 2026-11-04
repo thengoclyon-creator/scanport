@@ -281,7 +281,7 @@ public class DeviceNameResolver {
     // ─────────────────────────────────────────────────────────────────
     // 1. NetBIOS Name Service – UDP port 137
     // ─────────────────────────────────────────────────────────────────
-    private static DeviceInfo tryNetBiosName(String ip) {
+    public static DeviceInfo tryNetBiosName(String ip) {
         byte[] request = new byte[] {
             (byte)0x82, 0x28, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x20, 0x43, 0x4b, 0x41,
@@ -343,7 +343,7 @@ public class DeviceNameResolver {
     // ─────────────────────────────────────────────────────────────────
     // 2. Thử mDNS unicast truy vấn tên máy trực tiếp – UDP port 5353
     // ─────────────────────────────────────────────────────────────────
-    private static String tryMdnsUnicast(String ip) {
+    public static String tryMdnsUnicast(String ip) {
         byte[] mdnsQuery = new byte[] {
             0x00, 0x00, // ID
             0x00, 0x00, // Flags (standard query)

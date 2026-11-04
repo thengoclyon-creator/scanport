@@ -144,9 +144,37 @@ public class PortScanner {
     }
 
     /**
-     * Thử kết nối TCP Socket tới một cổng cụ thể và đo thời gian chính xác.
+     * Thử kết nối Socket tới một cổng cụ thể và đo thời gian chính xác (hỗ trợ cả TCP và các dịch vụ UDP mạng LAN).
      */
     public static PortResult probePort(String targetIp, int port, int timeoutMs, boolean grabBanner) {
+        // 1. Xử lý các cổng UDP đặc thù trên mạng LAN / Wi-Fi (NetBIOS 137, mDNS 5353, SSDP 1900)
+        if (port == 137) {
+            long startNano = System.nanoTime();
+            try {
+                DeviceNameResolver.DeviceInfo nb = DeviceNameResolver.tryNetBiosName(targetIp);
+                if (nb != null && nb.name != null && !nb.name.isEmpty()) {
+                    long latencyNano = System.nanoTime() - startNano;
+                    double latencyMs = latencyNano / 1_000_000.0;
+                    String banner = "NetBIOS Windows Name: " + nb.name + (nb.vendor != null ? " (" + nb.vendor + ")" : "");
+                    return new PortResult(137, "UDP", PortState.OPEN, PortDictionary.getServiceName(137), latencyMs, banner);
+                }
+            } catch (Exception ignored) {}
+        } else if (port == 5353) {
+            long startNano = System.nanoTime();
+            try {
+                String mdns = DeviceNameResolver.tryMdnsUnicast(targetIp);
+                if (mdns != null && !mdns.isEmpty()) {
+                    long latencyNano = System.nanoTime() - startNano;
+                    double latencyMs = latencyNano / 1_000_000.0;
+                    return new PortResult(5353, "UDP", PortState.OPEN, PortDictionary.getServiceName(5353), latencyMs, "mDNS Apple/Android: " + mdns);
+                }
+            } catch (Exception ignored) {}
+        } else if (port == 1900) {
+            PortResult ssdpRes = probeSsdp(targetIp, timeoutMs);
+            if (ssdpRes != null) return ssdpRes;
+        }
+
+        // 2. Thử kết nối TCP Socket
         long startNano = System.nanoTime();
         try (Socket socket = new Socket()) {
             socket.setReuseAddress(true);
@@ -176,6 +204,33 @@ public class PortScanner {
             double latencyMs = latencyNano / 1_000_000.0;
             return new PortResult(port, "TCP", PortState.FILTERED, PortDictionary.getServiceName(port), latencyMs, e.getMessage());
         }
+    }
+
+    private static PortResult probeSsdp(String targetIp, int timeoutMs) {
+        long startNano = System.nanoTime();
+        try (DatagramSocket socket = new DatagramSocket()) {
+            socket.setSoTimeout(Math.min(timeoutMs, 400));
+            String ssdp = "M-SEARCH * HTTP/1.1\r\n" +
+                    "HOST: 239.255.255.250:1900\r\n" +
+                    "MAN: \"ssdp:discover\"\r\n" +
+                    "MX: 1\r\n" +
+                    "ST: ssdp:all\r\n\r\n";
+            byte[] b = ssdp.getBytes(StandardCharsets.UTF_8);
+            DatagramPacket req = new DatagramPacket(b, b.length, InetAddress.getByName(targetIp), 1900);
+            socket.send(req);
+
+            byte[] buf = new byte[1024];
+            DatagramPacket resp = new DatagramPacket(buf, buf.length);
+            socket.receive(resp);
+
+            long latencyNano = System.nanoTime() - startNano;
+            double latencyMs = latencyNano / 1_000_000.0;
+            String text = new String(resp.getData(), 0, resp.getLength(), StandardCharsets.UTF_8);
+            Matcher m = Pattern.compile("(?i)Server:\\s*([^\r\n]+)").matcher(text);
+            String banner = m.find() ? ("UPnP SSDP Server: " + m.group(1).trim()) : "SSDP / UPnP Service MỞ";
+            return new PortResult(1900, "UDP", PortState.OPEN, PortDictionary.getServiceName(1900), latencyMs, banner);
+        } catch (Exception ignored) {}
+        return null;
     }
 
     /**

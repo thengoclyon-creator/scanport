@@ -64,11 +64,22 @@ public class WifiDetector {
         }
 
         if (!wifiInfo.isIpInWifiSubnet(targetIp)) {
-            throw new IllegalArgumentException(String.format(
-                    "CHẶN BẢO VỆ: Địa chỉ %s KHÔNG nằm trong dải mạng Wi-Fi hiện tại (%s/%s)!\n" +
-                    "Theo yêu cầu, ứng dụng chỉ được phép scan các thiết bị trong mạng Wi-Fi.",
-                    targetIp, wifiInfo.getSubnetNetworkAddress() + "0", wifiInfo.getSubnetMask()
-            ));
+            // Kiểm tra thêm: nếu targetIp là địa chỉ Private LAN (10.x, 172.16-31.x, 192.168.x) thuộc mạng nội bộ
+            boolean isPrivateLan = false;
+            try {
+                InetAddress addr = InetAddress.getByName(targetIp);
+                if (addr.isSiteLocalAddress() || addr.isLoopbackAddress()) {
+                    isPrivateLan = true;
+                }
+            } catch (Exception ignored) {}
+
+            if (!isPrivateLan) {
+                throw new IllegalArgumentException(String.format(
+                        "CHẶN BẢO VỆ: Địa chỉ %s KHÔNG nằm trong mạng Wi-Fi nội bộ hiện tại (%s)!\n" +
+                        "Theo yêu cầu, ứng dụng chỉ quét trong phạm vi mạng Wi-Fi nội bộ.",
+                        targetIp, wifiInfo.getCidrNotation()
+                ));
+            }
         }
 
         return true;
