@@ -181,21 +181,17 @@ public class DistanceCard extends JPanel {
             return;
         }
 
-        DistanceEstimate est = device.getDistanceEstimate();
-        if (est == null) {
-            double n = sliderPathLoss.getValue() / 10.0;
-            est = DistanceCalculator.calculateDistance(
-                    device.getIpAddress(),
-                    device.isGateway(),
-                    device.isLocalHost(),
-                    wifiInfo,
-                    device.getRttMs(),
-                    n,
-                    device.getMacAddress()
-            );
-            device.setDistanceEstimate(est);
-        }
-
+        double n = sliderPathLoss.getValue() / 10.0;
+        DistanceEstimate est = DistanceCalculator.calculateDistance(
+                device.getIpAddress(),
+                device.isGateway(),
+                device.isLocalHost(),
+                wifiInfo,
+                device.getRttMs(),
+                n,
+                device.getMacAddress()
+        );
+        device.setDistanceEstimate(est);
         updateEstimate(device, wifiInfo, est);
     }
 
@@ -269,7 +265,10 @@ public class DistanceCard extends JPanel {
         String targetIp = currentDevice.getIpAddress();
 
         CompletableFuture.runAsync(() -> {
-            DistanceCalculator.LiveProbeResult probeRes = DistanceCalculator.performLiveMultiProbe(targetIp, 5, 150);
+            // Làm mới chỉ số sóng Wi-Fi từ card mạng để bắt kịp việc di chuyển vị trí
+            com.wifiscan.service.WifiDetector.refreshSignalMetrics(currentWifi);
+
+            DistanceCalculator.LiveProbeResult probeRes = DistanceCalculator.performLiveMultiProbe(targetIp, 5, 180);
             double n = sliderPathLoss.getValue() / 10.0;
 
             double measuredRtt = probeRes.avgRtt > 0 ? probeRes.avgRtt : currentDevice.getRttMs();

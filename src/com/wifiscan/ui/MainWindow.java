@@ -15,6 +15,7 @@ import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Cửa sổ giao diện chính của ứng dụng Quét Cổng và Đo Khoảng Cách Wi-Fi.
@@ -160,6 +161,24 @@ public class MainWindow extends JFrame {
         tabbedPane.addTab("  3. Đo Khoảng Cách & Radar  ", createDistanceTab());
         tabbedPane.addTab("  4. Quét Wi-Fi Xung Quanh  ", createPublicWifiTab());
         tabbedPane.addTab("  5. Nhật Ký & Báo Cáo  ", createLogTab());
+
+        tabbedPane.addChangeListener(e -> {
+            int selectedIndex = tabbedPane.getSelectedIndex();
+            if (selectedIndex == 2) { // Tab 3: Đo Khoảng Cách & Radar
+                CompletableFuture.runAsync(() -> {
+                    if (currentWifi != null && currentWifi.isConnected()) {
+                        int oldRssi = currentWifi.getRssiDbm();
+                        WifiDetector.refreshSignalMetrics(currentWifi);
+                        if (currentWifi.getRssiDbm() != oldRssi) {
+                            SwingUtilities.invokeLater(() -> {
+                                wifiBadge.updateWifi(currentWifi);
+                                recalculateDiscoveredDistances();
+                            });
+                        }
+                    }
+                });
+            }
+        });
     }
 
     // ==========================================
@@ -788,34 +807,69 @@ public class MainWindow extends JFrame {
     // ==========================================
 
     private void refreshWifiInfo() {
-        log("Đang kiểm tra kết nối card mạng Wi-Fi...");
-        SwingUtilities.invokeLater(() -> {
+        log("Đang kiểm tra và làm mới chỉ số sóng card mạng Wi-Fi...");
+        CompletableFuture.runAsync(() -> {
             currentWifi = WifiDetector.detectActiveWifi();
-            wifiBadge.updateWifi(currentWifi);
+            SwingUtilities.invokeLater(() -> {
+                wifiBadge.updateWifi(currentWifi);
 
-            if (currentWifi.isConnected()) {
-                log(String.format("Đã kết nối Wi-Fi: %s (BSSID: %s, RSSI: %d dBm, Signal: %d%%)",
-                        currentWifi.getSsid(), currentWifi.getBssid(), currentWifi.getRssiDbm(), currentWifi.getSignalPercent()));
-                log(String.format("Dải mạng Wi-Fi: %s (Scanner IP: %s, Gateway: %s)",
-                        currentWifi.getCidrNotation(), currentWifi.getLocalIp(), currentWifi.getGatewayIp()));
+                if (currentWifi.isConnected()) {
+                    if (txtTargetIp.getText().trim().isEmpty() || txtTargetIp.getText().equals("127.0.0.1")) {
+                        txtTargetIp.setText(currentWifi.getGatewayIp());
+                    }
 
-                if (txtTargetIp.getText().trim().isEmpty() || txtTargetIp.getText().equals("127.0.0.1")) {
-                    txtTargetIp.setText(currentWifi.getGatewayIp());
+                    // Cập nhật lại khoảng cách cho toàn bộ thiết bị đã tìm thấy theo tín hiệu sóng mới!
+                    recalculateDiscoveredDistances();
+
+                    log(String.format("Làm mới Wi-Fi thành công: SSID=%s | RSSI=%d dBm (%d%%) | Scanner=%s | Gateway=%s",
+                            currentWifi.getSsid(), currentWifi.getRssiDbm(), currentWifi.getSignalPercent(),
+                            currentWifi.getLocalIp(), currentWifi.getGatewayIp()));
+                } else {
+                    log("CẢNH BÁO: Chưa tìm thấy card Wi-Fi đang kết nối!");
                 }
-            } else {
-                log("CẢNH BÁO: Chưa tìm thấy card Wi-Fi đang kết nối!");
-            }
+            });
         });
     }
 
-    private void startLanScan() {
-        if (!currentWifi.isConnected()) {
-            JOptionPane.showMessageDialog(this,
-                    "Máy tính chưa kết nối Wi-Fi! Vui lòng kết nối Wi-Fi trước khi quét.",
-                    "Lỗi kết nối Wi-Fi", JOptionPane.ERROR_MESSAGE);
-            return;
+    /**
+     * Tính toán lại khoảng cách cho toàn bộ thiết bị đã phát hiện khi người dùng di chuyển máy hoặc tín hiệu Wi-Fi thay đổi.
+     */
+    private void recalculateDiscoveredDistances() {
+        if (discoveredDevices == null || discoveredDevices.isEmpty()) return;
+
+        for (NetworkDevice dev : discoveredDevices) {
+            DistanceEstimate newEst = DistanceCalculator.calculateDistance(
+                    dev.getIpAddress(), dev.isGateway(), dev.isLocalHost(),
+                    currentWifi, dev.getRttMs(), null, dev.getMacAddress()
+            );
+            dev.setDistanceEstimate(newEst);
+
+            // Cập nhật cột khoảng cách trong bảng thiết bị
+            for (int r = 0; r < deviceTableModel.getRowCount(); r++) {
+                if (deviceTableModel.getValueAt(r, 0).equals(dev.getIpAddress())) {
+                    deviceTableModel.setValueAt(newEst.getFormattedDistance(), r, 5);
+                    break;
+                }
+            }
         }
 
+        radarPanel.setDevices(discoveredDevices);
+
+        // Nếu người dùng đang chọn một thiết bị, cập nhật lại DistanceCard ngay lập tức
+        int selRow = deviceTable.getSelectedRow();
+        if (selRow >= 0) {
+            int modelIdx = deviceTable.convertRowIndexToModel(selRow);
+            String selectedIp = (String) deviceTableModel.getValueAt(modelIdx, 0);
+            for (NetworkDevice dev : discoveredDevices) {
+                if (dev.getIpAddress().equals(selectedIp)) {
+                    distanceCard.displayDeviceDistance(dev, currentWifi);
+                    break;
+                }
+            }
+        }
+    }
+
+    private void startLanScan() {
         btnScanLan.setEnabled(false);
         btnStopLan.setEnabled(true);
         deviceTableModel.setRowCount(0);
@@ -824,15 +878,34 @@ public class MainWindow extends JFrame {
         filterDevices("");
         lblSearchResult.setText("");
         lanProgressBar.setValue(0);
-        lblLanProgress.setText("Đang khởi động dò tìm thiết bị Wi-Fi (Tối ưu Wi-Fi công cộng)...");
-        log(String.format("Bắt đầu dò tìm thiết bị trong mạng Wi-Fi: %s (Gateway: %s, Subnet Mask: %s)...",
-                currentWifi.getCidrNotation(), currentWifi.getGatewayIp(), currentWifi.getSubnetMask()));
-        if (currentWifi.getPrefixLength() < 24) {
-            log(String.format("-> Phát hiện mạng Wi-Fi công cộng dải rộng (/%d): Tối ưu quét đa phân vùng (Gateway AP + Client Local + Multicast Wakeup + Đồng bộ ARP thời gian thực).",
-                    currentWifi.getPrefixLength()));
-        }
+        lblLanProgress.setText("Đang làm mới thông số sóng Wi-Fi từ card mạng...");
 
-        lanScanner.scanWifiSubnet(currentWifi, new LanScanner.ScanProgressListener() {
+        CompletableFuture.runAsync(() -> {
+            // 1. Luôn cập nhật thông số sóng mới nhất (RSSI, Signal %, Gateway) trước khi quét
+            currentWifi = WifiDetector.detectActiveWifi();
+            SwingUtilities.invokeLater(() -> wifiBadge.updateWifi(currentWifi));
+
+            if (!currentWifi.isConnected()) {
+                SwingUtilities.invokeLater(() -> {
+                    btnScanLan.setEnabled(true);
+                    btnStopLan.setEnabled(false);
+                    lblLanProgress.setText("Lỗi: Máy tính chưa kết nối Wi-Fi!");
+                    JOptionPane.showMessageDialog(MainWindow.this,
+                            "Máy tính chưa kết nối Wi-Fi! Vui lòng kết nối Wi-Fi trước khi quét.",
+                            "Lỗi kết nối Wi-Fi", JOptionPane.ERROR_MESSAGE);
+                });
+                return;
+            }
+
+            log(String.format("Bắt đầu dò tìm thiết bị Wi-Fi: %s (Gateway: %s | RSSI: %d dBm [%d%%])...",
+                    currentWifi.getCidrNotation(), currentWifi.getGatewayIp(), currentWifi.getRssiDbm(), currentWifi.getSignalPercent()));
+            if (currentWifi.getPrefixLength() < 24) {
+                log(String.format("-> Phát hiện mạng Wi-Fi công cộng dải rộng (/%d): Tối ưu quét đa phân vùng (Gateway AP + Client Local + Multicast Wakeup + Đồng bộ ARP thời gian thực).",
+                        currentWifi.getPrefixLength()));
+            }
+
+            // 2. Tiếp tục tiến trình quét mạng với thông số Wi-Fi mới nhất
+            lanScanner.scanWifiSubnet(currentWifi, new LanScanner.ScanProgressListener() {
             @Override
             public void onProgress(int current, int total, double percent, String statusMsg) {
                 SwingUtilities.invokeLater(() -> {
@@ -912,6 +985,7 @@ public class MainWindow extends JFrame {
                     JOptionPane.showMessageDialog(MainWindow.this, message, "Lỗi quét mạng", JOptionPane.WARNING_MESSAGE);
                 });
             }
+            });
         });
     }
 

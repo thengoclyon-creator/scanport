@@ -85,6 +85,14 @@ public class WifiDetector {
         return true;
     }
 
+    /**
+     * Làm mới nhanh các thông số sóng vô tuyến (RSSI, Signal %, Channel, BSSID) từ card Wi-Fi vật lý.
+     */
+    public static boolean refreshSignalMetrics(WifiInfo wifiInfo) {
+        if (wifiInfo == null) return false;
+        return parseNetshWlan(wifiInfo);
+    }
+
     private static boolean parseNetshWlan(WifiInfo wifiInfo) {
         try {
             ProcessBuilder pb = new ProcessBuilder("netsh", "wlan", "show", "interfaces");
@@ -94,51 +102,58 @@ public class WifiDetector {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 boolean stateConnected = false;
+                boolean foundExplicitRssi = false;
 
                 while ((line = reader.readLine()) != null) {
                     line = line.trim();
                     if (line.isEmpty()) continue;
 
-                    if (line.startsWith("Name") || line.startsWith("Tên")) {
+                    String lineLower = line.toLowerCase();
+
+                    if (lineLower.startsWith("name") || lineLower.startsWith("tên")) {
                         wifiInfo.setInterfaceName(extractValue(line));
-                    } else if (line.startsWith("Description") || line.startsWith("Mô tả")) {
+                    } else if (lineLower.startsWith("description") || lineLower.startsWith("mô tả")) {
                         wifiInfo.setAdapterDescription(extractValue(line));
-                    } else if (line.startsWith("State") || line.startsWith("Trạng thái")) {
+                    } else if (lineLower.startsWith("state") || lineLower.startsWith("trạng thái")) {
                         String state = extractValue(line).toLowerCase();
                         if (state.contains("connected") || state.contains("đã kết nối")) {
                             stateConnected = true;
                         }
-                    } else if (line.startsWith("SSID") && !line.startsWith("BSSID") && !line.startsWith("AP BSSID")) {
+                    } else if (lineLower.startsWith("ssid") && !lineLower.startsWith("bssid") && !lineLower.startsWith("ap bssid")) {
                         wifiInfo.setSsid(extractValue(line));
-                    } else if (line.contains("BSSID")) {
+                    } else if (lineLower.contains("bssid")) {
                         wifiInfo.setBssid(extractValue(line));
-                    } else if (line.startsWith("Band") || line.startsWith("Dải tần")) {
+                    } else if (lineLower.startsWith("band") || lineLower.startsWith("dải tần")) {
                         wifiInfo.setBand(extractValue(line));
-                    } else if (line.startsWith("Channel") || line.startsWith("Kênh")) {
+                    } else if (lineLower.startsWith("channel") || lineLower.startsWith("kênh")) {
                         try {
                             wifiInfo.setChannel(Integer.parseInt(extractValue(line)));
                         } catch (Exception ignored) {}
-                    } else if (line.startsWith("Radio type") || line.startsWith("Loại vô tuyến")) {
+                    } else if (lineLower.startsWith("radio type") || lineLower.startsWith("loại vô tuyến")) {
                         wifiInfo.setRadioType(extractValue(line));
-                    } else if (line.startsWith("Signal") || line.startsWith("Tín hiệu")) {
+                    } else if (lineLower.startsWith("signal") || lineLower.startsWith("tín hiệu")) {
                         String sig = extractValue(line).replace("%", "").trim();
                         try {
                             wifiInfo.setSignalPercent(Integer.parseInt(sig));
                         } catch (Exception ignored) {}
-                    } else if (line.startsWith("Rssi")) {
+                    } else if (lineLower.startsWith("rssi")) {
                         String rssi = extractValue(line).trim();
                         try {
                             wifiInfo.setRssiDbm(Integer.parseInt(rssi));
+                            foundExplicitRssi = true;
                         } catch (Exception ignored) {}
                     }
                 }
 
-                // Nếu netsh không in RSSI trực tiếp nhưng có Signal %, tính RSSI xấp xỉ
-                if (wifiInfo.getRssiDbm() == -100 && wifiInfo.getSignalPercent() > 0) {
-                    // Công thức chuẩn chuyển đổi Signal % sang dBm trên Windows
-                    // 100% -> -50 dBm, 0% -> -100 dBm
+                // Cập nhật RSSI từ Signal % nếu không có trường Rssi trực tiếp
+                if (!foundExplicitRssi && wifiInfo.getSignalPercent() > 0) {
+                    // Công thức chuẩn chuyển đổi Signal % sang dBm trên Windows NDIS:
+                    // 100% -> -50 dBm, 50% -> -75 dBm, 0% -> -100 dBm
                     int calculatedRssi = (wifiInfo.getSignalPercent() / 2) - 100;
                     wifiInfo.setRssiDbm(calculatedRssi);
+                } else if (foundExplicitRssi && wifiInfo.getSignalPercent() == 0 && wifiInfo.getRssiDbm() > -100) {
+                    int calcSig = Math.min(100, Math.max(5, 2 * (wifiInfo.getRssiDbm() + 100)));
+                    wifiInfo.setSignalPercent(calcSig);
                 }
 
                 wifiInfo.setConnected(stateConnected);
