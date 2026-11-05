@@ -20,9 +20,23 @@ import java.util.regex.Pattern;
 public class WifiDetector {
 
     /**
+     * Kích hoạt quét sóng Wi-Fi phần cứng để Windows NDIS làm mới toàn bộ bộ nhớ đệm sóng tín hiệu.
+     */
+    public static void triggerHardwareScan() {
+        try {
+            ProcessBuilder pb = new ProcessBuilder("netsh", "wlan", "show", "networks");
+            Process p = pb.start();
+            p.waitFor(600, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (Exception ignored) {}
+    }
+
+    /**
      * Quét và lấy thông tin card mạng Wi-Fi đang hoạt động.
      */
     public static WifiInfo detectActiveWifi() {
+        // Làm mới bộ nhớ đệm sóng từ card mạng
+        triggerHardwareScan();
+
         WifiInfo wifiInfo = new WifiInfo();
 
         // 1. Phân tích lệnh Windows netsh wlan show interfaces
@@ -90,6 +104,7 @@ public class WifiDetector {
      */
     public static boolean refreshSignalMetrics(WifiInfo wifiInfo) {
         if (wifiInfo == null) return false;
+        triggerHardwareScan();
         return parseNetshWlan(wifiInfo);
     }
 
@@ -145,13 +160,15 @@ public class WifiDetector {
                     }
                 }
 
-                // Cập nhật RSSI từ Signal % nếu không có trường Rssi trực tiếp
-                if (!foundExplicitRssi && wifiInfo.getSignalPercent() > 0) {
-                    // Công thức chuẩn chuyển đổi Signal % sang dBm trên Windows NDIS:
-                    // 100% -> -50 dBm, 50% -> -75 dBm, 0% -> -100 dBm
-                    int calculatedRssi = (wifiInfo.getSignalPercent() / 2) - 100;
-                    wifiInfo.setRssiDbm(calculatedRssi);
-                } else if (foundExplicitRssi && wifiInfo.getSignalPercent() == 0 && wifiInfo.getRssiDbm() > -100) {
+                // CHÚ Ý QUAN TRỌNG: Trên Windows (đặc biệt card Intel/Realtek), trường 'Rssi' trong netsh
+                // thường bị driver lưu cache tĩnh (-39 dBm hoặc -45 dBm).
+                // Trường 'Signal %' mới là chỉ số chất lượng sóng NDIS cập nhật thời gian thực khi người dùng di chuyển máy!
+                if (wifiInfo.getSignalPercent() > 0) {
+                    // Công thức chuẩn Windows NDIS chuyển đổi Signal % sang RSSI (dBm):
+                    // 100% -> -50 dBm, 75% -> -62 dBm, 50% -> -75 dBm, 20% -> -90 dBm
+                    int dynamicRssi = (wifiInfo.getSignalPercent() / 2) - 100;
+                    wifiInfo.setRssiDbm(dynamicRssi);
+                } else if (foundExplicitRssi && wifiInfo.getRssiDbm() > -100) {
                     int calcSig = Math.min(100, Math.max(5, 2 * (wifiInfo.getRssiDbm() + 100)));
                     wifiInfo.setSignalPercent(calcSig);
                 }

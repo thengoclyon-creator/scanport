@@ -19,11 +19,11 @@ import java.util.List;
 public class DistanceCalculator {
 
     // Hệ số công suất chuẩn tại 1 mét (Reference Power A tại d0 = 1m)
-    public static final double DEFAULT_A_24GHZ = -38.0; // dBm cho băng tần 2.4 GHz
-    public static final double DEFAULT_A_5GHZ = -42.0;  // dBm cho băng tần 5.0 GHz
+    public static final double DEFAULT_A_24GHZ = -35.0; // dBm cho băng tần 2.4 GHz
+    public static final double DEFAULT_A_5GHZ = -38.0;  // dBm cho băng tần 5.0 GHz
 
     // Hệ số suy hao môi trường (Path Loss Exponent n)
-    public static final double DEFAULT_PATH_LOSS_EXPONENT = 2.6;
+    public static final double DEFAULT_PATH_LOSS_EXPONENT = 2.4;
 
     /**
      * Kết quả đo đạc RTT đa mẫu thực tế (Real Multi-Probe).
@@ -210,7 +210,7 @@ public class DistanceCalculator {
         return -1.0;
     }
 
-    private static double pingSingle(String ip, int timeoutMs) {
+    public static double pingSingle(String ip, int timeoutMs) {
         try {
             ProcessBuilder pb = new ProcessBuilder("ping", "-n", "1", "-w", String.valueOf(timeoutMs), ip);
             Process p = pb.start();
@@ -296,9 +296,15 @@ public class DistanceCalculator {
         int prefix = wifiInfo.getPrefixLength();
         int seed = getDeviceSeed(targetIp, mac);
 
+        // Bù trừ độ trễ mạng khi di chuyển ra xa AP (tín hiệu sóng suy giảm)
+        double signalPenalty = 0.0;
+        if (wifiInfo.getSignalPercent() > 0 && wifiInfo.getSignalPercent() < 95) {
+            signalPenalty = (95 - wifiInfo.getSignalPercent()) * 0.22;
+        }
+
         if (prefix >= 24) {
             double distBase = 1.10 + (seed % 65) * 0.10;
-            double rtt = 1.60 + (distBase * 0.45) + (seed % 9) * 0.06;
+            double rtt = 1.60 + (distBase * 0.45) + (seed % 9) * 0.06 + signalPenalty;
             return round(rtt, 2);
         }
 
@@ -311,16 +317,16 @@ public class DistanceCalculator {
 
         if (deltaSubnet == 0) {
             distBase = 0.95 + (seed % 24) * 0.10;
-            rtt = 1.40 + (distBase * 0.42) + (seed % 7) * 0.05;
+            rtt = 1.40 + (distBase * 0.42) + (seed % 7) * 0.05 + signalPenalty;
         } else if (deltaSubnet <= 3) {
             distBase = 3.60 + (seed % 32) * 0.10;
-            rtt = 3.10 + (distBase * 0.35) + (seed % 9) * 0.06;
+            rtt = 3.10 + (distBase * 0.35) + (seed % 9) * 0.06 + signalPenalty;
         } else if (deltaSubnet <= 25) {
             distBase = 6.80 + (seed % 50) * 0.10;
-            rtt = 5.20 + (distBase * 0.28) + (seed % 11) * 0.08;
+            rtt = 5.20 + (distBase * 0.28) + (seed % 11) * 0.08 + signalPenalty;
         } else {
             distBase = 13.50 + (seed % 120) * 0.10;
-            rtt = 9.80 + (distBase * 0.22) + (seed % 13) * 0.10;
+            rtt = 9.80 + (distBase * 0.22) + (seed % 13) * 0.10 + signalPenalty;
         }
 
         return round(rtt, 2);
@@ -470,6 +476,11 @@ public class DistanceCalculator {
             }
         }
 
+        double signalPenalty = 0.0;
+        if (wifiInfo.getSignalPercent() > 0 && wifiInfo.getSignalPercent() < 95) {
+            signalPenalty = (95 - wifiInfo.getSignalPercent()) * 0.22;
+        }
+
         boolean hasRealMeasurement = (knownRtt != null && knownRtt > 0 &&
                 Math.abs(knownRtt - 3.8) > 0.05 && Math.abs(knownRtt - 3.5) > 0.05 && Math.abs(knownRtt - 3.6) > 0.05);
 
@@ -481,7 +492,7 @@ public class DistanceCalculator {
             method = "Mô hình hình học RF phối hợp (Đo RTT mạng thực tế + Sóng Wi-Fi AP)";
             confidence = "Cao (Đã bắt được độ trễ RTT thật)";
         } else {
-            rttUsed = 1.40 + (baseDistToAp * 0.35) + (seed % 7) * 0.05;
+            rttUsed = 1.40 + (baseDistToAp * 0.35) + (seed % 7) * 0.05 + signalPenalty;
             distanceToAp = baseDistToAp;
             method = "Mô hình hình học RF vô tuyến (Sóng Wi-Fi AP + Cụm mạng Subnet)";
             confidence = "Khá (Ước tính theo sóng Wi-Fi card và topo mạng)";

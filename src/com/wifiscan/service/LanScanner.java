@@ -149,7 +149,14 @@ public class LanScanner {
                                 measuredRtt = 0.05;
                             } else if (targetIp.equals(gatewayIp)) {
                                 isAlive = true;
-                                measuredRtt = measureTcpRtt(targetIp, 80, 200);
+                                double gwPing = DistanceCalculator.pingSingle(targetIp, 250);
+                                if (gwPing <= 0) {
+                                    gwPing = DistanceCalculator.measureRealRtt(targetIp);
+                                }
+                                if (gwPing <= 0) {
+                                    gwPing = measureTcpRtt(targetIp, 80, 200);
+                                }
+                                measuredRtt = gwPing > 0 ? gwPing : 2.5;
                             } else if (broadcastNames.containsKey(targetIp)) {
                                 isAlive = true;
                                 measuredRtt = DistanceCalculator.measureRealRtt(targetIp);
